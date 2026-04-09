@@ -1,0 +1,3 @@
+데이터베이스 설계 문서
+테이블 목록: users, orders, products
+복구 절차 문서화 완료

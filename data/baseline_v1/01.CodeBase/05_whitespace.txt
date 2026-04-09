@@ -1,0 +1,9 @@
+function hello() {
+  var x = 1;
+  var y  =  2;
+    return x + y;
+}
+
+이름: 홍길동
+주소: 서울시  강남구
+전화번호:  010-1234-5678

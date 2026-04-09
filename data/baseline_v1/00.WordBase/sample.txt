@@ -1,5 +1,0 @@
-The quick brown fox jumps over the lazy dog.
-Hello World
-This line will be deleted.
-apple banana cherry
-café résumé naïve

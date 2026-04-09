@@ -1,0 +1,3 @@
+The deployment pipeline has three stages.
+Unit tests must pass before merging.
+Code coverage threshold is set to 80 percent.

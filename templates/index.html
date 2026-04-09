@@ -1,49 +1,48 @@
 {% extends "base.html" %}
-{% block title %}Diff Viewer — 홈{% endblock %}
+{% block title %}{{ current_baseline or 'Diff Viewer' }} — 홈{% endblock %}
 
 {% block content %}
 <div class="home-wrap">
   <div class="home-hero">
     <h1 class="home-title">파일을 선택하세요</h1>
-    <p class="home-desc">왼쪽 사이드바에서 시험 ID를 펼치고 비교할 파일을 클릭하세요.</p>
+    <p class="home-desc">왼쪽 사이드바에서 비교할 파일을 클릭하세요.</p>
   </div>
 
+  {% if files and files.files %}
   <div class="home-stats">
     <div class="stat-card">
-      <div class="stat-num">{{ exams|length }}</div>
-      <div class="stat-label">시험 ID</div>
+      <div class="stat-num">{{ files.files|length }}</div>
+      <div class="stat-label">전체 파일</div>
     </div>
     <div class="stat-card">
-      <div class="stat-num">{{ exams|sum(attribute='common')|list|length }}</div>
-      <div class="stat-label">비교 가능 파일</div>
+      <div class="stat-num">{{ files.changed_count }}</div>
+      <div class="stat-label">변경된 파일</div>
     </div>
   </div>
 
-  {% if exams %}
-    {% for exam in exams %}
-    <div class="exam-card">
-      <div class="exam-card-header">
-        <span class="exam-card-id">{{ exam.exam_id }}</span>
-        <span class="exam-card-meta">공통 {{ exam.common|length }}개 · WordBase 전용 {{ exam.only_word|length }}개 · CodeBase 전용 {{ exam.only_code|length }}개</span>
-      </div>
-      {% if exam.common %}
-      <div class="exam-card-files">
-        {% for f in exam.common %}
-        <a href="{{ url_for('diff_view', exam_id=exam.exam_id, filename=f) }}" class="file-card">
-          <span class="file-card-icon">&#128196;</span>
-          <span class="file-card-name">{{ f }}</span>
-          <span class="file-card-arrow">&#8594;</span>
-        </a>
-        {% endfor %}
-      </div>
-      {% else %}
-      <p class="exam-card-empty">비교 가능한 공통 파일이 없습니다.</p>
-      {% endif %}
+  <div class="exam-card">
+    <div class="exam-card-header">
+      <span class="exam-card-id">{{ current_baseline }}</span>
+      <span class="exam-card-meta">{{ files.changed_count }}/{{ files.files|length }}개 변경</span>
     </div>
-    {% endfor %}
+    <div class="exam-card-files">
+      {% for f in files.files %}
+      <a href="{{ url_for('diff_view', baseline=current_baseline, filename=f.name) }}" class="file-card">
+        {% if f.changed %}
+        <span class="file-card-icon file-card-changed">&#8800;</span>
+        {% else %}
+        <span class="file-card-icon file-card-same">&#61;</span>
+        {% endif %}
+        <span class="file-card-name">{{ f.name }}</span>
+        {% if f.changed %}<span class="file-card-badge-changed">변경</span>{% else %}<span class="file-card-badge-same">동일</span>{% endif %}
+        <span class="file-card-arrow">&#8594;</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
   {% else %}
   <div class="home-empty">
-    <p><code>data/</code> 폴더 안에 시험 ID 폴더를 만들고,<br>그 안에 <code>00.WordBase/</code> 와 <code>01.CodeBase/</code> 폴더를 넣어주세요.</p>
+    <p><code>data/</code> 폴더 안에 베이스라인 폴더를 만들고,<br>그 안에 <code>00.WordBase/</code> 와 <code>01.CodeBase/</code> 폴더를 넣어주세요.</p>
     <pre class="home-tree">data/
 └── baseline_v1/
     ├── 00.WordBase/

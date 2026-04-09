@@ -1,3 +1,0 @@
-Score: 95
-Accuracy: high
-Model: baseline

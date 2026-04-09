@@ -25,8 +25,9 @@
   --diff-del-gutter:  #ffe0e0;
   --diff-add-bg:      #f0fff4;
   --diff-add-gutter:  #d4f5e0;
+  /* [H4] replace 양쪽 모두 동일한 노란색 배경 */
   --diff-replace-bg-a:#fff8e6;
-  --diff-replace-bg-b:#fffff0;
+  --diff-replace-bg-b:#fff8e6;
   --diff-equal-bg:    #ffffff;
   --diff-gutter-bg:   #f9fafb;
   --diff-gutter-text: #9ca3af;
@@ -105,6 +106,39 @@ body {
   font-size: 12px; font-weight: 600; color: #e2e8f0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
+
+/* 베이스라인 선택 */
+.sidebar-baseline {
+  padding: 10px 12px 8px;
+  border-bottom: 1px solid var(--border-sidebar);
+}
+.baseline-label {
+  display: block;
+  font-size: 10px; font-weight: 600;
+  letter-spacing: 0.06em; text-transform: uppercase;
+  color: var(--text-sidebar-m);
+  margin-bottom: 5px;
+}
+.baseline-select {
+  width: 100%;
+  background: rgba(255,255,255,0.07);
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 6px;
+  color: #e2e8f0;
+  font-size: 13px;
+  font-family: var(--font-ui);
+  padding: 7px 10px;
+  cursor: pointer;
+  outline: none;
+  transition: border-color 0.15s;
+  appearance: none;
+  -webkit-appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236e7a99' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 10px center;
+}
+.baseline-select:focus { border-color: #a78bfa; }
+.baseline-select option { background: #1e1e2e; color: #e2e8f0; }
 
 /* 검색창 */
 .sidebar-search {
@@ -230,9 +264,34 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
   width: 16px; height: 16px; border-radius: 3px;
   font-size: 9px; font-weight: 700; flex-shrink: 0;
 }
-.nav-icon-both   { background: rgba(167,139,250,0.2); color: #a78bfa; }
-.nav-icon-only-a { background: rgba(252,165,165,0.2); color: #f87171; }
-.nav-icon-only-b { background: rgba(134,239,172,0.2); color: #4ade80; }
+.nav-icon-changed { background: rgba(251,191,36,0.2); color: #fbbf24; }
+.nav-icon-same    { background: rgba(134,239,172,0.15); color: #4ade80; opacity: 0.6; }
+
+.nav-badge-changed {
+  font-size: 9px; font-weight: 700;
+  background: rgba(251,191,36,0.2); color: #fbbf24;
+  padding: 1px 5px; border-radius: 8px;
+  margin-left: auto; flex-shrink: 0;
+}
+
+/* 필터 버튼 */
+.nav-filter {
+  display: flex; gap: 4px;
+  padding: 4px 12px 8px;
+}
+.nav-filter-btn {
+  flex: 1; padding: 4px 0;
+  font-size: 11px; font-weight: 600;
+  font-family: var(--font-ui);
+  background: transparent;
+  border: 1px solid rgba(255,255,255,0.1);
+  border-radius: 5px;
+  color: var(--text-sidebar-m);
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.nav-filter-btn:hover { background: rgba(255,255,255,0.05); color: #cbd5e1; }
+.nav-filter-btn.active { background: rgba(167,139,250,0.15); border-color: rgba(167,139,250,0.3); color: #a78bfa; }
 
 .nav-filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .nav-empty, .nav-no-results { padding: 20px 16px; font-size: 12px; color: var(--text-sidebar-m); text-align: center; }
@@ -247,6 +306,29 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 .folder-tag.a { background: rgba(252,165,165,0.15); color: #f87171; }
 .folder-tag.b { background: rgba(134,239,172,0.15); color: #4ade80; }
 .folder-arrow { color: var(--text-sidebar-m); }
+
+/* =========================================================
+   Sidebar resizer
+   ========================================================= */
+.sidebar-resizer {
+  width: 4px;
+  cursor: col-resize;
+  background: transparent;
+  flex-shrink: 0;
+  transition: background 0.15s;
+  position: relative;
+  z-index: 10;
+}
+.sidebar-resizer::after {
+  content: '';
+  position: absolute;
+  top: 0; bottom: 0;
+  left: -2px; right: -2px;
+}
+.sidebar-resizer:hover,
+.sidebar-resizer:active {
+  background: #a78bfa;
+}
 
 /* =========================================================
    Main
@@ -299,6 +381,20 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 .file-card-icon  { font-size: 15px; }
 .file-card-name  { flex: 1; font-size: 13px; font-weight: 500; }
 .file-card-arrow { color: var(--text-secondary); }
+.file-card-changed { color: #d97706; }
+.file-card-same    { color: #16a34a; opacity: 0.5; }
+.file-card-badge-changed {
+  font-size: 10px; font-weight: 600;
+  background: #fef3c7; color: #92400e;
+  padding: 1px 7px; border-radius: 8px;
+  margin-left: auto;
+}
+.file-card-badge-same {
+  font-size: 10px; font-weight: 600;
+  background: #ecfdf5; color: #065f46;
+  padding: 1px 7px; border-radius: 8px;
+  margin-left: auto; opacity: 0.7;
+}
 
 .home-empty {
   background: var(--bg-main); border: 1px solid var(--border);
@@ -387,23 +483,24 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 
 .diff-table {
   width: 100%; border-collapse: collapse;
-  font-family: var(--font-code); font-size: 13px;
+  font-family: var(--font-code); font-size: 13.5px;
   line-height: 1; table-layout: fixed;
 }
 
-.diff-row > td { padding: 0; vertical-align: middle; border-bottom: none; line-height: 1; }
+.diff-row > td { padding: 0; vertical-align: middle; border-bottom: 1px solid #f3f4f6; line-height: 1; }
 
 .gutter {
   width: 52px; min-width: 52px; max-width: 52px;
-  text-align: right; padding: 1px 8px 1px 4px !important;
-  font-size: 11px; line-height: 1.8;
+  text-align: right; padding: 5px 10px 5px 6px !important;
+  font-size: 12px; line-height: 2.2;
   color: var(--diff-gutter-text); user-select: none;
   background: var(--diff-gutter-bg); border-right: 1px solid var(--border);
 }
 
+/* [M3] 긴 줄이 잘리지 않도록 overflow-x: auto */
 .code {
-  padding: 1px 10px !important; white-space: pre;
-  overflow: hidden; border-right: 1px solid var(--border); line-height: 1.8;
+  padding: 5px 14px !important; white-space: pre;
+  overflow-x: auto; border-right: 1px solid var(--border); line-height: 2.2;
 }
 
 .line-mark {
@@ -426,7 +523,7 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 .diff-replace .code-a                         { background: var(--diff-replace-bg-a); }
 .diff-replace .gutter-a                       { background: #fff3cd; }
 .diff-replace .code-b                         { background: var(--diff-replace-bg-b); }
-.diff-replace .gutter-b                       { background: #fffde0; }
+.diff-replace .gutter-b                       { background: #fff3cd; }
 
 .diff-row:hover .code-a,
 .diff-row:hover .code-b { filter: brightness(0.97); }
@@ -446,6 +543,74 @@ span.wd-diff {
   padding: 0 2px;
   font-weight: 600;
 }
+span.wd-ws-del {
+  background: #fecaca;
+  color: #991b1b;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 600;
+  font-size: 12px;
+}
+span.wd-ws-add {
+  background: #bbf7d0;
+  color: #166534;
+  border-radius: 3px;
+  padding: 0 2px;
+  font-weight: 600;
+  font-size: 12px;
+}
+
+/* ── [H2] 빈 파일 표시 ── */
+.diff-empty-file .code-a,
+.diff-empty-file .code-b {
+  background: #f9fafb;
+  text-align: center;
+}
+.empty-file-msg {
+  color: var(--text-secondary);
+  font-style: italic;
+  font-size: 12px;
+}
+
+/* ── [M4] 변경 네비게이션 버튼 ── */
+.nav-change-btn {
+  background: #f3f4f6; border: 1px solid var(--border);
+  border-radius: 4px; padding: 2px 6px;
+  font-size: 10px; cursor: pointer;
+  color: var(--text-secondary); line-height: 1;
+  transition: background 0.12s;
+}
+.nav-change-btn:hover { background: #e5e7eb; color: var(--text-primary); }
+.nav-change-pos {
+  font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  min-width: 40px; text-align: center;
+}
+
+/* 포커스된 변경 행 하이라이트 */
+.diff-row-focus > td { outline: 2px solid #a78bfa; outline-offset: -2px; }
+
+/* ── [M4] 미니맵 ── */
+.diff-table-wrap { position: relative; }
+.diff-minimap {
+  position: absolute;
+  top: 0; right: 0; bottom: 0;
+  width: 10px;
+  background: rgba(0,0,0,0.04);
+  z-index: 5;
+  pointer-events: auto;
+}
+.minimap-marker {
+  position: absolute;
+  right: 1px; left: 1px;
+  height: 3px; border-radius: 1px;
+  cursor: pointer;
+  opacity: 0.8;
+  transition: opacity 0.12s;
+}
+.minimap-marker:hover { opacity: 1; height: 5px; }
+.minimap-del     { background: #ef4444; }
+.minimap-add     { background: #22c55e; }
+.minimap-replace { background: #eab308; }
 
 /* =========================================================
    반응형

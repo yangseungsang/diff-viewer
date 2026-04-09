@@ -1,4 +1,0 @@
-Score: 92
-Accuracy: High
-Model: Baseline
-Extra: added field

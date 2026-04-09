@@ -1,18 +1,23 @@
 {% extends "base.html" %}
-{% block title %}{{ filename }} — {{ exam_id }}{% endblock %}
+{% block title %}{{ filename }} — {{ current_baseline }}{% endblock %}
 
 {% block content %}
 <div class="diff-wrap">
 
   <div class="diff-header">
     <div class="diff-header-left">
-      <a href="{{ url_for('index') }}" class="back-btn">&#8592; 목록</a>
-      <span class="diff-exam-badge">{{ exam_id }}</span>
+      <a href="{{ url_for('baseline_view', baseline=current_baseline) }}" class="back-btn">&#8592; 목록</a>
+      <span class="diff-exam-badge">{{ current_baseline }}</span>
       <h2 class="diff-filename">{{ filename }}</h2>
     </div>
     <div class="diff-header-right">
       <span class="badge badge-total">전체 {{ total }}줄</span>
       {% if changed == 0 %}<span class="badge badge-same">변경 없음</span>{% else %}<span class="badge badge-changed">{{ changed }}줄 변경</span>{% endif %}
+      {% if changed > 0 %}
+      <button class="nav-change-btn" id="btn-prev-change" title="이전 변경 (Shift+F7)">&#9650;</button>
+      <span class="nav-change-pos" id="change-pos">0/{{ changed }}</span>
+      <button class="nav-change-btn" id="btn-next-change" title="다음 변경 (F7)">&#9660;</button>
+      {% endif %}
     </div>
   </div>
 
@@ -22,8 +27,10 @@
     <span class="legend-item"><span class="legend-dot dot-add"></span>추가</span>
     <span class="legend-item"><span class="legend-dot dot-replace"></span>변경</span>
     <span class="legend-sep"></span>
-    <span class="legend-item"><span class="legend-word wd-only">단어</span>한쪽에만 존재</span>
-    <span class="legend-item"><span class="legend-word wd-diff">단어</span>철자/대소문자 차이</span>
+    <span class="legend-item"><span class="legend-word wd-only">단어</span>다른 내용</span>
+    <span class="legend-item"><span class="legend-word wd-diff">단어</span>대소문자 차이</span>
+    <span class="legend-item"><span class="legend-word wd-ws-del">·</span>공백 삭제</span>
+    <span class="legend-item"><span class="legend-word wd-ws-add">·</span>공백 추가</span>
   </div>
 
   <div class="diff-col-header">
@@ -33,14 +40,89 @@
     <div class="diff-col-pane"><span class="col-label col-label-b">{{ code_dir_name }} / {{ filename }}</span></div>
   </div>
 
-  <div class="diff-table-wrap">
+  <div class="diff-table-wrap" id="diff-table-wrap">
     <table class="diff-table">
       <tbody>
-      {% for row in rows %}<tr class="diff-row diff-{{ row.type }}"><td class="gutter gutter-a">{% if row.lineno_a is not none %}{{ row.lineno_a }}{% endif %}</td><td class="code code-a"><span class="line-mark {% if row.type == "delete" or row.type == "replace" %}line-mark-del{% endif %}">{% if row.type == "delete" or row.type == "replace" %}&#8722;{% endif %}</span><span class="line-text">{{ row.html_a|safe }}</span></td><td class="gutter gutter-b">{% if row.lineno_b is not none %}{{ row.lineno_b }}{% endif %}</td><td class="code code-b"><span class="line-mark {% if row.type == "insert" or row.type == "replace" %}line-mark-add{% endif %}">{% if row.type == "insert" or row.type == "replace" %}+{% endif %}</span><span class="line-text">{{ row.html_b|safe }}</span></td></tr>
+      {% for row in rows %}
+      {% if row.type == "empty-file" %}
+      <tr class="diff-row diff-empty-file"><td class="gutter gutter-a"></td><td class="code code-a" colspan="1"><span class="empty-file-msg">빈 파일</span></td><td class="gutter gutter-b"></td><td class="code code-b" colspan="1"><span class="empty-file-msg">빈 파일</span></td></tr>
+      {% else %}
+      <tr class="diff-row diff-{{ row.type }}"><td class="gutter gutter-a">{% if row.lineno_a is not none %}{{ row.lineno_a }}{% endif %}</td><td class="code code-a"><span class="line-mark {% if row.type == "delete" or row.type == "replace" %}line-mark-del{% endif %}">{% if row.type == "delete" or row.type == "replace" %}&#8722;{% endif %}</span><span class="line-text">{{ row.html_a|safe }}</span></td><td class="gutter gutter-b">{% if row.lineno_b is not none %}{{ row.lineno_b }}{% endif %}</td><td class="code code-b"><span class="line-mark {% if row.type == "insert" or row.type == "replace" %}line-mark-add{% endif %}">{% if row.type == "insert" or row.type == "replace" %}+{% endif %}</span><span class="line-text">{{ row.html_b|safe }}</span></td></tr>
+      {% endif %}
       {% endfor %}
       </tbody>
     </table>
+
+    <!-- [M4] 변경 위치 미니맵 -->
+    {% if changed > 0 %}
+    <div class="diff-minimap" id="diff-minimap"></div>
+    {% endif %}
   </div>
 
 </div>
+
+<script>
+/* ── [M4] 변경 네비게이션 + 미니맵 ── */
+(function() {
+  var wrap = document.getElementById('diff-table-wrap');
+  if (!wrap) return;
+
+  var changeRows = Array.from(wrap.querySelectorAll('.diff-row:not(.diff-equal):not(.diff-empty-file)'));
+  if (changeRows.length === 0) return;
+
+  var currentIdx = -1;
+  var posEl  = document.getElementById('change-pos');
+  var prevBtn = document.getElementById('btn-prev-change');
+  var nextBtn = document.getElementById('btn-next-change');
+
+  function goToChange(idx) {
+    if (idx < 0) idx = changeRows.length - 1;
+    if (idx >= changeRows.length) idx = 0;
+
+    // 이전 하이라이트 제거
+    if (currentIdx >= 0 && currentIdx < changeRows.length) {
+      changeRows[currentIdx].classList.remove('diff-row-focus');
+    }
+
+    currentIdx = idx;
+    changeRows[idx].classList.add('diff-row-focus');
+    changeRows[idx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    if (posEl) posEl.textContent = (idx + 1) + '/' + changeRows.length;
+  }
+
+  if (prevBtn) prevBtn.addEventListener('click', function() { goToChange(currentIdx - 1); });
+  if (nextBtn) nextBtn.addEventListener('click', function() { goToChange(currentIdx + 1); });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'F7') {
+      e.preventDefault();
+      if (e.shiftKey) goToChange(currentIdx - 1);
+      else goToChange(currentIdx + 1);
+    }
+  });
+
+  // 미니맵 생성
+  var minimap = document.getElementById('diff-minimap');
+  if (minimap) {
+    var allRows = Array.from(wrap.querySelectorAll('.diff-row'));
+    var total = allRows.length;
+    if (total > 0) {
+      changeRows.forEach(function(row, ci) {
+        var rowIdx = allRows.indexOf(row);
+        var pct = (rowIdx / total) * 100;
+        var marker = document.createElement('div');
+        marker.className = 'minimap-marker';
+        var cls = row.classList;
+        if (cls.contains('diff-delete')) marker.classList.add('minimap-del');
+        else if (cls.contains('diff-insert')) marker.classList.add('minimap-add');
+        else marker.classList.add('minimap-replace');
+        marker.style.top = pct + '%';
+        marker.setAttribute('data-ci', ci);
+        marker.addEventListener('click', function() { goToChange(parseInt(this.getAttribute('data-ci'))); });
+        minimap.appendChild(marker);
+      });
+    }
+  }
+}());
+</script>
 {% endblock %}

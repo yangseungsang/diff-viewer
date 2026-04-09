@@ -19,12 +19,15 @@
       </a>
     </div>
 
-    <!-- 현재 선택된 시험 표시 -->
-    {% set current_exam = request.view_args.get('exam_id') if request.view_args else None %}
-    {% if current_exam %}
-    <div class="sidebar-context">
-      <span class="context-label">현재 선택</span>
-      <span class="context-exam">{{ current_exam }}</span>
+    <!-- 베이스라인 선택 -->
+    {% if baselines %}
+    <div class="sidebar-baseline">
+      <label class="baseline-label" for="baseline-select">베이스라인</label>
+      <select id="baseline-select" class="baseline-select" onchange="location.href='/' + this.value">
+        {% for b in baselines %}
+        <option value="{{ b }}" {% if b == current_baseline %}selected{% endif %}>{{ b }}</option>
+        {% endfor %}
+      </select>
     </div>
     {% endif %}
 
@@ -38,68 +41,43 @@
           </svg>
         </span>
         <input type="text" id="sidebar-search" class="search-input"
-               placeholder="파일 / 시험 검색..." autocomplete="off" spellcheck="false">
+               placeholder="파일 검색..." autocomplete="off" spellcheck="false">
         <button id="search-clear" class="search-clear" title="지우기" style="display:none;">&#10005;</button>
       </div>
       <div id="search-count" class="search-count" style="display:none;"></div>
     </div>
 
-    <!-- 네비게이션 -->
+    <!-- 파일 목록 -->
     <nav class="sidebar-nav" id="sidebar-nav">
 
-      {% for exam in exams %}
-      {% set is_active_exam = (current_exam == exam.exam_id) %}
-      <div class="exam-group {% if is_active_exam %}exam-group-active{% endif %}"
-           data-exam="{{ exam.exam_id }}">
+      {% set current_filename = request.view_args.get('filename') if request.view_args else None %}
 
-        <button class="exam-header {% if is_active_exam %}exam-header-active{% endif %}"
-                onclick="toggleExam(this)">
-          <span class="exam-chevron">&#9660;</span>
-          <span class="exam-id">{{ exam.exam_id }}</span>
-          {% if is_active_exam %}<span class="exam-active-dot"></span>{% endif %}
-          <span class="exam-count">{{ exam.common|length }}</span>
-        </button>
-
-        <div class="exam-files" {% if not is_active_exam %}style="display:none;"{% endif %}>
-          {% if exam.common %}
-          <div class="nav-section-label">공통<span class="nav-section-count">{{ exam.common|length }}</span></div>
-          {% for f in exam.common %}
-          {% set is_active_file = (is_active_exam and request.view_args.get('filename') == f) %}
-          <a href="{{ url_for('diff_view', exam_id=exam.exam_id, filename=f) }}"
-             class="nav-item {% if is_active_file %}active{% endif %}"
-             data-filename="{{ f }}" data-exam="{{ exam.exam_id }}">
-            <span class="nav-icon nav-icon-both">&#8800;</span>
-            <span class="nav-filename">{{ f }}</span>
-          </a>
-          {% endfor %}
-          {% endif %}
-
-          {% if exam.only_word %}
-          <div class="nav-section-label">WordBase 전용<span class="nav-section-count">{{ exam.only_word|length }}</span></div>
-          {% for f in exam.only_word %}
-          <div class="nav-item nav-item-disabled" data-filename="{{ f }}" data-exam="{{ exam.exam_id }}">
-            <span class="nav-icon nav-icon-only-a">A</span>
-            <span class="nav-filename">{{ f }}</span>
-          </div>
-          {% endfor %}
-          {% endif %}
-
-          {% if exam.only_code %}
-          <div class="nav-section-label">CodeBase 전용<span class="nav-section-count">{{ exam.only_code|length }}</span></div>
-          {% for f in exam.only_code %}
-          <div class="nav-item nav-item-disabled" data-filename="{{ f }}" data-exam="{{ exam.exam_id }}">
-            <span class="nav-icon nav-icon-only-b">B</span>
-            <span class="nav-filename">{{ f }}</span>
-          </div>
-          {% endfor %}
-          {% endif %}
-        </div>
-
+      {% if files and files.files %}
+      <div class="nav-section-label">
+        파일
+        <span class="nav-section-count">{{ files.changed_count }}/{{ files.files|length }}</span>
       </div>
+      <div class="nav-filter">
+        <button class="nav-filter-btn active" data-filter="all" onclick="filterFiles(this,'all')">전체</button>
+        <button class="nav-filter-btn" data-filter="changed" onclick="filterFiles(this,'changed')">변경됨</button>
+        <button class="nav-filter-btn" data-filter="unchanged" onclick="filterFiles(this,'unchanged')">동일</button>
+      </div>
+      {% for f in files.files %}
+      {% set is_active = (current_filename == f.name) %}
+      <a href="{{ url_for('diff_view', baseline=current_baseline, filename=f.name) }}"
+         class="nav-item {% if is_active %}active{% endif %}"
+         data-filename="{{ f.name }}" data-changed="{{ 'true' if f.changed else 'false' }}">
+        {% if f.changed %}
+        <span class="nav-icon nav-icon-changed">&#8800;</span>
+        {% else %}
+        <span class="nav-icon nav-icon-same">&#61;</span>
+        {% endif %}
+        <span class="nav-filename">{{ f.name }}</span>
+        {% if f.changed %}<span class="nav-badge-changed">변경</span>{% endif %}
+      </a>
       {% endfor %}
-
-      {% if not exams %}
-      <div class="nav-empty">data/ 폴더가 비어있습니다</div>
+      {% else %}
+      <div class="nav-empty">파일이 없습니다</div>
       {% endif %}
 
       <div class="nav-no-results" id="nav-no-results" style="display:none;">검색 결과가 없습니다</div>
@@ -113,6 +91,8 @@
 
   </aside>
 
+  <div class="sidebar-resizer" id="sidebar-resizer"></div>
+
   <main class="main">
     {% block content %}{% endblock %}
   </main>
@@ -120,20 +100,50 @@
 </div>
 
 <script>
-/* ── 시험 그룹 접기/펼치기 ── */
-function toggleExam(btn) {
-  var group   = btn.closest('.exam-group');
-  var files   = group.querySelector('.exam-files');
-  var chevron = btn.querySelector('.exam-chevron');
-  var collapsed = files.style.display === 'none';
-  files.style.display   = collapsed ? '' : 'none';
-  chevron.style.transform = collapsed ? '' : 'rotate(-90deg)';
-}
+/* ── 사이드바 리사이즈 ── */
+(function() {
+  var resizer = document.getElementById('sidebar-resizer');
+  var sidebar = document.querySelector('.sidebar');
+  var startX, startW;
 
-/* ── 비활성 그룹의 chevron 초기 상태 ── */
-document.querySelectorAll('.exam-group:not(.exam-group-active) .exam-chevron').forEach(function(c) {
-  c.style.transform = 'rotate(-90deg)';
-});
+  resizer.addEventListener('mousedown', function(e) {
+    startX = e.clientX;
+    startW = sidebar.offsetWidth;
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+    document.addEventListener('mousemove', onMouseMove);
+    document.addEventListener('mouseup', onMouseUp);
+  });
+
+  function onMouseMove(e) {
+    var newW = startW + (e.clientX - startX);
+    if (newW < 180) newW = 180;
+    if (newW > 500) newW = 500;
+    sidebar.style.width = newW + 'px';
+    sidebar.style.minWidth = newW + 'px';
+  }
+
+  function onMouseUp() {
+    document.body.style.cursor = '';
+    document.body.style.userSelect = '';
+    document.removeEventListener('mousemove', onMouseMove);
+    document.removeEventListener('mouseup', onMouseUp);
+  }
+}());
+
+/* ── 파일 필터 (전체/변경됨/동일) ── */
+var currentFilter = 'all';
+function filterFiles(btn, filter) {
+  currentFilter = filter;
+  document.querySelectorAll('.nav-filter-btn').forEach(function(b) { b.classList.remove('active'); });
+  btn.classList.add('active');
+  document.querySelectorAll('#sidebar-nav .nav-item').forEach(function(item) {
+    var changed = item.getAttribute('data-changed') === 'true';
+    if (filter === 'all') item.style.display = '';
+    else if (filter === 'changed') item.style.display = changed ? '' : 'none';
+    else item.style.display = changed ? 'none' : '';
+  });
+}
 
 /* ── 사이드바 검색 ── */
 (function () {
@@ -150,54 +160,43 @@ document.querySelectorAll('.exam-group:not(.exam-group-active) .exam-chevron').f
     var q = query.toLowerCase().replace(/\s+/g, '');
     var visibleTotal = 0;
 
-    document.querySelectorAll('#sidebar-nav .exam-group').forEach(function(group) {
-      var examId    = (group.getAttribute('data-exam') || '').toLowerCase();
-      var examMatch = !q || examId.indexOf(q) !== -1;
-      var items     = Array.from(group.querySelectorAll('.nav-item'));
-      var visibleItems = 0;
+    document.querySelectorAll('#sidebar-nav .nav-item').forEach(function(item) {
+      var fname   = (item.getAttribute('data-filename') || '').toLowerCase();
+      var visible = !q || fname.indexOf(q) !== -1;
 
-      items.forEach(function(item) {
-        var fname   = (item.getAttribute('data-filename') || '').toLowerCase();
-        var visible = !q || examMatch || fname.indexOf(q) !== -1;
-
-        var nameEl = item.querySelector('.nav-filename');
-        if (nameEl) {
-          var orig = item.getAttribute('data-filename') || '';
-          if (q && visible) {
-            var searchIn = orig.toLowerCase();
-            var idx = searchIn.indexOf(q);
-            if (idx !== -1) {
-              nameEl.innerHTML =
-                escHtml(orig.slice(0, idx)) +
-                '<mark class="search-hl">' + escHtml(orig.slice(idx, idx + q.length)) + '</mark>' +
-                escHtml(orig.slice(idx + q.length));
-            } else {
-              nameEl.textContent = orig;
-            }
+      var nameEl = item.querySelector('.nav-filename');
+      if (nameEl) {
+        var orig = item.getAttribute('data-filename') || '';
+        if (q && visible) {
+          var idx = fname.indexOf(q);
+          if (idx !== -1) {
+            nameEl.innerHTML =
+              escHtml(orig.slice(0, idx)) +
+              '<mark class="search-hl">' + escHtml(orig.slice(idx, idx + q.length)) + '</mark>' +
+              escHtml(orig.slice(idx + q.length));
           } else {
             nameEl.textContent = orig;
           }
+        } else {
+          nameEl.textContent = orig;
         }
-
-        item.style.display = visible ? '' : 'none';
-        if (visible) visibleItems++;
-      });
-
-      var groupVisible = examMatch || visibleItems > 0;
-      group.style.display = groupVisible ? '' : 'none';
-
-      if (q && groupVisible) {
-        var files   = group.querySelector('.exam-files');
-        var chevron = group.querySelector('.exam-chevron');
-        if (files)   files.style.display = '';
-        if (chevron) chevron.style.transform = '';
       }
 
-      group.querySelectorAll('.nav-section-label').forEach(function(lbl) {
-        lbl.style.display = groupVisible ? '' : 'none';
-      });
+      item.style.display = visible ? '' : 'none';
+      if (visible) visibleTotal++;
+    });
 
-      if (groupVisible) visibleTotal += visibleItems;
+    document.querySelectorAll('#sidebar-nav .nav-section-label').forEach(function(lbl) {
+      var next = lbl.nextElementSibling;
+      var hasVisible = false;
+      while (next && !next.classList.contains('nav-section-label')) {
+        if (next.classList.contains('nav-item') && next.style.display !== 'none') {
+          hasVisible = true;
+          break;
+        }
+        next = next.nextElementSibling;
+      }
+      lbl.style.display = hasVisible ? '' : 'none';
     });
 
     noResult.style.display = (q && visibleTotal === 0) ? '' : 'none';

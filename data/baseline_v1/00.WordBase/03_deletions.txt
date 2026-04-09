@@ -1,0 +1,7 @@
+데이터베이스 설계 문서
+테이블 목록: users, orders, products
+인덱스 설정: primary key, unique index
+외래 키 관계 정의
+마이그레이션 스크립트 작성
+백업 정책: 매일 자정 실행
+복구 절차 문서화 완료

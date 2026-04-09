@@ -1,28 +1,39 @@
 import os
 import re
 import difflib
-from flask import Flask, render_template, abort
+from flask import Flask, render_template, abort, redirect, url_for
 
 app = Flask(__name__)
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 DATA_DIR = os.path.join(BASE_DIR, "data")
 
-# 두 줄이 같은 줄로 짝지어질 최소 유사도 (0.0 ~ 1.0)
-SIMILARITY_THRESHOLD = 0.3
+# [H3] 두 줄이 같은 줄로 짝지어질 최소 유사도 — 0.55 (기존 0.3은 너무 낮아 무관한 줄이 매칭됨)
+SIMILARITY_THRESHOLD = 0.55
 
 
 # ─────────────────────────────────────────
 # 폴더 스캔
 # ─────────────────────────────────────────
 
-def find_pair_dirs(exam_dir):
-    """exam_dir 안에서 00으로 시작하는 폴더와 01로 시작하는 폴더를 찾아 반환"""
+def get_baselines():
+    """data/ 하위의 베이스라인 폴더 목록 반환"""
+    if not os.path.isdir(DATA_DIR):
+        return []
+    return sorted(
+        name for name in os.listdir(DATA_DIR)
+        if os.path.isdir(os.path.join(DATA_DIR, name))
+    )
+
+
+def find_pair_dirs(baseline):
+    """baseline 폴더 안에서 00~/01~ 폴더를 찾아 반환"""
+    base_path = os.path.join(DATA_DIR, baseline)
     word_dir = code_dir = None
-    if not os.path.isdir(exam_dir):
+    if not os.path.isdir(base_path):
         return None, None
-    for name in sorted(os.listdir(exam_dir)):
-        full = os.path.join(exam_dir, name)
+    for name in sorted(os.listdir(base_path)):
+        full = os.path.join(base_path, name)
         if not os.path.isdir(full):
             continue
         if name.startswith("00") and word_dir is None:
@@ -32,37 +43,42 @@ def find_pair_dirs(exam_dir):
     return word_dir, code_dir
 
 
-def get_all_exams():
-    """
-    data/ 하위의 모든 폴더를 탐색해 시험 목록 반환.
-    각 폴더 안에서 00~/01~ 하위폴더를 자동으로 찾음.
-    """
-    result = []
-    if not os.path.isdir(DATA_DIR):
-        return result
+def file_has_diff(word_dir, code_dir, filename):
+    """파일이 변경되었는지 빠르게 확인"""
+    path_a = os.path.join(word_dir, filename)
+    path_b = os.path.join(code_dir, filename)
+    try:
+        with open(path_a, "r", encoding="utf-8", errors="replace") as fa, \
+             open(path_b, "r", encoding="utf-8", errors="replace") as fb:
+            return fa.read() != fb.read()
+    except OSError:
+        return True
 
-    for exam_id in sorted(os.listdir(DATA_DIR)):
-        exam_path = os.path.join(DATA_DIR, exam_id)
-        if not os.path.isdir(exam_path):
-            continue
-        word_dir, code_dir = find_pair_dirs(exam_path)
 
-        word_files = set()
-        code_files = set()
-        if word_dir:
-            word_files = {f for f in os.listdir(word_dir) if f.endswith(".txt")}
-        if code_dir:
-            code_files = {f for f in os.listdir(code_dir) if f.endswith(".txt")}
+def get_file_list(baseline):
+    """해당 베이스라인의 파일 목록 반환 (변경 여부 포함)"""
+    word_dir, code_dir = find_pair_dirs(baseline)
 
-        result.append({
-            "exam_id":   exam_id,
-            "word_dir":  word_dir,
-            "code_dir":  code_dir,
-            "common":    sorted(word_files & code_files),
-            "only_word": sorted(word_files - code_files),
-            "only_code": sorted(code_files - word_files),
-        })
-    return result
+    # [M2] 양쪽 디렉토리의 합집합으로 파일 목록 생성
+    filenames = set()
+    if word_dir:
+        filenames |= {f for f in os.listdir(word_dir) if f.endswith(".txt")}
+    if code_dir:
+        filenames |= {f for f in os.listdir(code_dir) if f.endswith(".txt")}
+
+    files = []
+    for f in sorted(filenames):
+        changed = file_has_diff(word_dir, code_dir, f) if word_dir and code_dir else False
+        files.append({"name": f, "changed": changed})
+
+    changed_count = sum(1 for f in files if f["changed"])
+
+    return {
+        "word_dir": word_dir,
+        "code_dir": code_dir,
+        "files":    files,
+        "changed_count": changed_count,
+    }
 
 
 # ─────────────────────────────────────────
@@ -73,10 +89,24 @@ def esc(s):
     return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
 
+def esc_ws(s):
+    """공백 문자를 시각적 기호로 변환 (공백 diff 하이라이트용)"""
+    out = ""
+    for ch in s:
+        if ch == " ":
+            out += "·"
+        elif ch == "\t":
+            out += "→\t"
+        else:
+            out += esc(ch)
+    return out
+
+
 def line_similarity(a, b):
     """두 줄의 유사도 (0.0 ~ 1.0)"""
+    # [H7] 빈 줄끼리는 0.0으로 처리해 greedy 매칭에서 의미 있는 줄을 방해하지 않도록
     if not a and not b:
-        return 1.0
+        return 0.0
     if not a or not b:
         return 0.0
     return difflib.SequenceMatcher(None, a, b, autojunk=False).ratio()
@@ -91,12 +121,100 @@ def tokenize(text):
     return re.findall(r'\S+|\s+', text) if text else []
 
 
+def _classify_replace(seg_a, seg_b):
+    """
+    replace 세그먼트의 차이 유형을 분류.
+    - "ws"   : 비공백 내용이 동일하고 공백 배치만 다름
+    - "case" : 비공백 내용이 대소문자만 다름
+    - "diff" : 내용이 다름
+    """
+    stripped_a = seg_a.strip()
+    stripped_b = seg_b.strip()
+
+    # 양쪽 다 공백만
+    if stripped_a == "" and stripped_b == "":
+        return "ws"
+
+    # 비공백 내용이 동일 → 공백 배치만 다름
+    # 예: "서울시 " vs " 서울시" → 공백 차이
+    non_ws_a = re.sub(r'\s+', '', seg_a)
+    non_ws_b = re.sub(r'\s+', '', seg_b)
+    words_a = seg_a.split()
+    words_b = seg_b.split()
+
+    if non_ws_a == non_ws_b and len(words_a) == len(words_b):
+        return "ws"
+
+    # 대소문자만 다름 (단어 수가 같을 때만)
+    if (non_ws_a.lower() == non_ws_b.lower()
+            and len(words_a) == len(words_b)):
+        return "case"
+
+    return "diff"
+
+
+def _render_ws_diff(seg_a, seg_b):
+    """
+    공백/대소문자 차이를 문자 단위로 세밀하게 렌더링.
+    - 삭제된 공백 → wd-ws-del (빨간, · / → 기호)
+    - 추가된 공백 → wd-ws-add (초록, · / → 기호)
+    - 변경된 공백 → wd-ws-del / wd-ws-add (탭↔스페이스 등)
+    - 대소문자 차이 → wd-diff (파란색)
+    """
+    chars_a = list(seg_a)
+    chars_b = list(seg_b)
+    matcher = difflib.SequenceMatcher(None, chars_a, chars_b, autojunk=False)
+    html_a, html_b = [], []
+
+    for tag, i1, i2, j1, j2 in matcher.get_opcodes():
+        ca = "".join(chars_a[i1:i2])
+        cb = "".join(chars_b[j1:j2])
+        if tag == "equal":
+            html_a.append(esc(ca))
+            html_b.append(esc(cb))
+        elif tag == "replace":
+            is_ws = (ca.strip() == "" or cb.strip() == "")
+            is_case = (not is_ws and ca.lower() == cb.lower())
+            if is_ws:
+                html_a.append(f'<span class="wd-ws-del">{esc_ws(ca)}</span>')
+                html_b.append(f'<span class="wd-ws-add">{esc_ws(cb)}</span>')
+            elif is_case:
+                html_a.append(f'<span class="wd-diff">{esc(ca)}</span>')
+                html_b.append(f'<span class="wd-diff">{esc(cb)}</span>')
+            else:
+                html_a.append(f'<span class="wd-ws-del">{esc_ws(ca)}</span>')
+                html_b.append(f'<span class="wd-ws-add">{esc_ws(cb)}</span>')
+        elif tag == "delete":
+            html_a.append(f'<span class="wd-ws-del">{esc_ws(ca)}</span>')
+        elif tag == "insert":
+            html_b.append(f'<span class="wd-ws-add">{esc_ws(cb)}</span>')
+
+    return "".join(html_a), "".join(html_b)
+
+
 def word_diff_html(text_a, text_b):
     """
     두 줄을 단어 단위로 비교해 HTML 문자열 쌍으로 반환.
-    - 한쪽에만 있는 단어  → wd-only (빨간색)
-    - 대소문자/철자 차이  → wd-diff  (파란색)
+    - 공백만 다름              → wd-ws (회색) — 문자 단위 diff
+    - 한쪽에만 있는 단어       → wd-only (빨간색)
+    - 완전히 다른 단어로 교체  → wd-only (빨간색)
+    - 대소문자만 다름          → wd-diff (파란색)
     """
+    # 줄 전체의 비공백 내용이 동일하면 공백 배치만 다른 것 → 문자 단위 diff
+    non_ws_a = re.sub(r'\s+', '', text_a)
+    non_ws_b = re.sub(r'\s+', '', text_b)
+    if non_ws_a == non_ws_b:
+        return _render_ws_diff(text_a, text_b)
+
+    # 대소문자만 다른 경우도 줄 전체 레벨에서 먼저 체크
+    # 단, 단어 수가 같아야 함 — "foo BAR" vs "foobar" 같은 단어 구조 변경은 제외
+    words_a = text_a.split()
+    words_b = text_b.split()
+    if (non_ws_a.lower() == non_ws_b.lower()
+            and non_ws_a != non_ws_b
+            and len(words_a) == len(words_b)):
+        return _render_ws_diff(text_a, text_b)
+
     tokens_a = tokenize(text_a)
     tokens_b = tokenize(text_b)
     matcher  = difflib.SequenceMatcher(None, tokens_a, tokens_b, autojunk=False)
@@ -112,17 +230,18 @@ def word_diff_html(text_a, text_b):
             parts_b.append(esc(seg_b))
 
         elif tag == "replace":
-            if seg_a.strip() == "" and seg_b.strip() == "":
-                parts_a.append(esc(seg_a))
-                parts_b.append(esc(seg_b))
-            elif seg_a.lower() == seg_b.lower():
-                # 대소문자만 다름
-                parts_a.append(f'<span class="wd-diff">{esc(seg_a)}</span>')
-                parts_b.append(f'<span class="wd-diff">{esc(seg_b)}</span>')
+            cls = _classify_replace(seg_a, seg_b)
+            if cls == "ws":
+                ha, hb = _render_ws_diff(seg_a, seg_b)
+                parts_a.append(ha)
+                parts_b.append(hb)
+            elif cls == "case":
+                ha, hb = _render_ws_diff(seg_a, seg_b)
+                parts_a.append(ha)
+                parts_b.append(hb)
             else:
-                # 철자 차이
-                parts_a.append(f'<span class="wd-diff">{esc(seg_a)}</span>')
-                parts_b.append(f'<span class="wd-diff">{esc(seg_b)}</span>')
+                parts_a.append(f'<span class="wd-only">{esc(seg_a)}</span>')
+                parts_b.append(f'<span class="wd-only">{esc(seg_b)}</span>')
 
         elif tag == "delete":
             parts_a.append(f'<span class="wd-only">{esc(seg_a)}</span>')
@@ -141,16 +260,7 @@ def match_blocks(block_a, block_b):
     """
     replace 블록 내에서 유사도 기반으로 라인을 최적 매칭.
 
-    알고리즘:
-    1. 각 (a_line, b_line) 쌍의 유사도를 계산
-    2. 유사도가 THRESHOLD 이상인 쌍 중 greedy하게 최적 쌍을 선택
-       (유사도 높은 순으로 매칭, 한 번 매칭된 라인은 재사용 안 함)
-    3. 매칭된 쌍 → replace 행
-       매칭 안 된 a → delete 행
-       매칭 안 된 b → insert 행
-    4. 최종 순서는 원래 줄 번호 순서대로 재정렬
-
-    반환: list of ("replace"|"delete"|"insert", la_or_None, lb_or_None)
+    [C1] greedy 매칭 후 monotonic 순서를 강제하여 교차 매칭 방지.
     """
     n, m = len(block_a), len(block_b)
 
@@ -170,7 +280,7 @@ def match_blocks(block_a, block_b):
 
     matched_a = set()
     matched_b = set()
-    matches   = {}  # a_idx -> b_idx
+    matches   = {}
 
     for score, i, j in pairs:
         if i not in matched_a and j not in matched_b:
@@ -178,17 +288,21 @@ def match_blocks(block_a, block_b):
             matched_a.add(i)
             matched_b.add(j)
 
+    # [C1] monotonic 순서 강제 — 교차 매칭 제거
+    ordered = sorted(matches.items())
+    clean_matches = {}
+    prev_j = -1
+    for i, j in ordered:
+        if j > prev_j:
+            clean_matches[i] = j
+            prev_j = j
+    matches = clean_matches
+    matched_a = set(matches.keys())
+    matched_b = set(matches.values())
+
     # 결과를 원래 순서로 재구성
-    # 매칭된 쌍은 a의 줄 번호 기준으로 배치
-    # 매칭 안 된 b는 가장 가까운 위치의 a 뒤에 삽입
-
-    # a_idx별 이후에 삽입될 b들 정리
-    # 매칭 안 된 b를 순서대로 배치하기 위해
-    # 매칭된 a 중 b_idx 기준으로 앞에 있는 미매칭 b를 앞에 배치
-
     unmatched_b = sorted(set(range(m)) - matched_b)
 
-    # (position_key, type, a_idx_or_None, b_idx_or_None)
     events = []
     for i in range(n):
         if i in matches:
@@ -196,21 +310,16 @@ def match_blocks(block_a, block_b):
         else:
             events.append((i * 2 + 1, "delete", i, None))
 
-    # 미매칭 b를 적절한 위치에 삽입
-    # 방법: 매칭된 b_idx보다 작은 미매칭 b는 그 매칭 쌍 앞에, 나머지는 뒤에
-    matched_b_sorted = sorted((j, i) for i, j in matches.items())  # (b_idx, a_idx)
+    matched_b_sorted = sorted((j, i) for i, j in matches.items())
 
     for bj in unmatched_b:
-        # bj보다 큰 b_idx 중 최소 매칭 쌍을 찾음
         inserted = False
         for match_bj, match_ai in matched_b_sorted:
             if match_bj > bj:
-                # match_ai 앞에 삽입
                 events.append((match_ai * 2, "insert", None, bj))
                 inserted = True
                 break
         if not inserted:
-            # 모든 매칭 쌍보다 뒤에
             events.append((n * 2 + bj, "insert", None, bj))
 
     events.sort(key=lambda x: x[0])
@@ -228,8 +337,9 @@ def match_blocks(block_a, block_b):
 # 파일 전체 diff
 # ─────────────────────────────────────────
 
+# [H6] UnicodeDecodeError 방지 — errors="replace"로 안전하게 읽기
 def read_file(path):
-    with open(path, "r", encoding="utf-8") as f:
+    with open(path, "r", encoding="utf-8", errors="replace") as f:
         return f.readlines()
 
 
@@ -241,6 +351,9 @@ def make_row(rtype, lineno_a, lineno_b, text_a, text_b):
         ha, hb = word_diff_html(text_a or "", text_b or "")
     elif rtype == "delete":
         ha = esc(text_a or "")
+        hb = ""
+    elif rtype == "empty-file":
+        ha = ""
         hb = ""
     else:  # insert
         ha = ""
@@ -258,10 +371,26 @@ def build_diff(word_dir, code_dir, filename):
     path_a = os.path.join(word_dir, filename)
     path_b = os.path.join(code_dir, filename)
 
-    lines_a = [l.rstrip("\n") for l in read_file(path_a)]
-    lines_b = [l.rstrip("\n") for l in read_file(path_b)]
+    # [H1] Windows 줄바꿈(\r\n) 처리
+    lines_a = [l.rstrip("\r\n") for l in read_file(path_a)]
+    lines_b = [l.rstrip("\r\n") for l in read_file(path_b)]
 
-    # 라인 전체 SequenceMatcher
+    # [H2] 빈 파일 처리 — 한쪽이 비어있으면 표시
+    if not lines_a and not lines_b:
+        return [make_row("empty-file", None, None, None, None)], 0, 0
+
+    if not lines_a:
+        rows = [make_row("empty-file", None, None, None, None)]
+        for idx, lb in enumerate(lines_b, 1):
+            rows.append(make_row("insert", None, idx, None, lb))
+        return rows, len(lines_b), len(lines_b)
+
+    if not lines_b:
+        rows = [make_row("empty-file", None, None, None, None)]
+        for idx, la in enumerate(lines_a, 1):
+            rows.append(make_row("delete", idx, None, la, None))
+        return rows, len(lines_a), len(lines_a)
+
     matcher = difflib.SequenceMatcher(None, lines_a, lines_b, autojunk=False)
     rows = []
     lineno_a = 1
@@ -278,10 +407,7 @@ def build_diff(word_dir, code_dir, filename):
         elif tag == "replace":
             block_a = lines_a[i1:i2]
             block_b = lines_b[j1:j2]
-
-            # 유사도 기반 매칭
             matched = match_blocks(block_a, block_b)
-
             for rtype, la, lb in matched:
                 lna = lineno_a if la is not None else None
                 lnb = lineno_b if lb is not None else None
@@ -310,18 +436,31 @@ def build_diff(word_dir, code_dir, filename):
 
 @app.route("/")
 def index():
-    exams = get_all_exams()
-    return render_template("index.html", exams=exams)
+    baselines = get_baselines()
+    if baselines:
+        return redirect(url_for("baseline_view", baseline=baselines[0]))
+    return render_template("index.html", baselines=[], files=None, current_baseline=None)
 
 
-@app.route("/diff/<exam_id>/<filename>")
-def diff_view(exam_id, filename):
+@app.route("/<baseline>")
+def baseline_view(baseline):
+    baselines = get_baselines()
+    if baseline not in baselines:
+        abort(404)
+    files = get_file_list(baseline)
+    return render_template("index.html", baselines=baselines, files=files, current_baseline=baseline)
+
+
+@app.route("/<baseline>/diff/<filename>")
+def diff_view(baseline, filename):
     if not filename.endswith(".txt"):
         abort(400)
 
-    exam_path = os.path.join(DATA_DIR, exam_id)
-    word_dir, code_dir = find_pair_dirs(exam_path)
+    baselines = get_baselines()
+    if baseline not in baselines:
+        abort(404)
 
+    word_dir, code_dir = find_pair_dirs(baseline)
     if not word_dir or not code_dir:
         abort(404)
 
@@ -330,21 +469,22 @@ def diff_view(exam_id, filename):
     if not os.path.isfile(path_a) or not os.path.isfile(path_b):
         abort(404)
 
-    exams = get_all_exams()
+    files = get_file_list(baseline)
     rows, total, changed = build_diff(word_dir, code_dir, filename)
     word_dir_name = os.path.basename(word_dir)
     code_dir_name = os.path.basename(code_dir)
 
     return render_template(
         "diff.html",
-        exam_id=exam_id,
+        baselines=baselines,
+        current_baseline=baseline,
         filename=filename,
         word_dir_name=word_dir_name,
         code_dir_name=code_dir_name,
         rows=rows,
         total=total,
         changed=changed,
-        exams=exams,
+        files=files,
     )
 
 

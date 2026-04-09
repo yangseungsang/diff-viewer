@@ -1,0 +1,12 @@
+[server]
+host = 127.0.0.1
+port = 8080
+max_connections = 100
+timeout = 30
+
+[database]
+engine = postgresql
+host = localhost
+port = 5432
+name = app_dev
+pool_size = 10
