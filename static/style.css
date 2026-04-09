@@ -581,7 +581,7 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 /* diff 테이블: 고정 레이아웃, 모노스페이스 폰트 */
 .diff-table {
   width: 100%; border-collapse: collapse;
-  font-family: var(--font-code); font-size: 13.5px;
+  font-family: var(--font-code); font-size: 12px;
   line-height: 1; table-layout: fixed;
 }
 
@@ -592,15 +592,15 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 .gutter {
   width: 52px; min-width: 52px; max-width: 52px;
   text-align: right; padding: 5px 10px 5px 6px !important;
-  font-size: 12px; line-height: 2.2;
+  font-size: 11px; line-height: 1.7;
   color: var(--diff-gutter-text); user-select: none;     /* 줄 번호 선택 방지 */
   background: var(--diff-gutter-bg); border-right: 1px solid var(--border);
 }
 
 /* [M3] 코드 셀: 긴 줄이 잘리지 않도록 가로 스크롤 허용 */
 .code {
-  padding: 5px 14px !important; white-space: pre;         /* 공백/줄바꿈 보존 */
-  overflow-x: auto; border-right: 1px solid var(--border); line-height: 2.2;
+  padding: 3px 14px !important; white-space: pre;         /* 공백/줄바꿈 보존 */
+  overflow-x: auto; border-right: 1px solid var(--border); line-height: 1.7;
 }
 
 /* 줄 앞의 기호 (- 또는 +) */
