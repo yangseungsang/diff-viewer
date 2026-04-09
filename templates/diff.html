@@ -1,59 +1,92 @@
 {% extends "base.html" %}
+
+<!-- 페이지 제목: "파일명 — 베이스라인명" -->
 {% block title %}{{ filename }} — {{ current_baseline }}{% endblock %}
 
 {% block content %}
+<!-- Diff 페이지 래퍼: 전체 뷰포트 높이를 차지하는 flex column 레이아웃 -->
 <div class="diff-wrap">
 
+  <!-- ===== Diff 헤더: 파일 정보 + 변경 통계 + 네비게이션 ===== -->
   <div class="diff-header">
+    <!-- 왼쪽: 뒤로가기 + 베이스라인 배지 + 파일명 -->
     <div class="diff-header-left">
+      <!-- 목록 페이지로 돌아가기 버튼 -->
       <a href="{{ url_for('baseline_view', baseline=current_baseline) }}" class="back-btn">&#8592; 목록</a>
+      <!-- 현재 베이스라인명 배지 -->
       <span class="diff-exam-badge">{{ current_baseline }}</span>
+      <!-- 현재 파일명 -->
       <h2 class="diff-filename">{{ filename }}</h2>
     </div>
+    <!-- 오른쪽: 전체 줄 수 + 변경 줄 수 + 변경 위치 네비게이션 -->
     <div class="diff-header-right">
       <span class="badge badge-total">전체 {{ total }}줄</span>
+      <!-- 변경이 없으면 "변경 없음" 배지, 있으면 변경 줄 수 표시 -->
       {% if changed == 0 %}<span class="badge badge-same">변경 없음</span>{% else %}<span class="badge badge-changed">{{ changed }}줄 변경</span>{% endif %}
+      <!-- 변경 위치 이동 버튼: 변경된 줄이 있을 때만 표시 -->
       {% if changed > 0 %}
+      <!-- 이전 변경으로 이동 (Shift+F7 단축키) -->
       <button class="nav-change-btn" id="btn-prev-change" title="이전 변경 (Shift+F7)">&#9650;</button>
+      <!-- 현재 위치 / 전체 변경 수 표시 -->
       <span class="nav-change-pos" id="change-pos">0/{{ changed }}</span>
+      <!-- 다음 변경으로 이동 (F7 단축키) -->
       <button class="nav-change-btn" id="btn-next-change" title="다음 변경 (F7)">&#9660;</button>
       {% endif %}
     </div>
   </div>
 
-  <!-- 범례 -->
+  <!-- ===== 범례: diff 색상/기호의 의미 설명 ===== -->
   <div class="diff-legend">
+    <!-- 줄 단위 diff 범례: 삭제(빨간)/추가(초록)/변경(노란) -->
     <span class="legend-item"><span class="legend-dot dot-del"></span>삭제</span>
     <span class="legend-item"><span class="legend-dot dot-add"></span>추가</span>
     <span class="legend-item"><span class="legend-dot dot-replace"></span>변경</span>
+    <!-- 구분선 -->
     <span class="legend-sep"></span>
+    <!-- 단어 단위 diff 범례: 다른 내용/대소문자/공백 삭제/공백 추가 -->
     <span class="legend-item"><span class="legend-word wd-only">단어</span>다른 내용</span>
     <span class="legend-item"><span class="legend-word wd-diff">단어</span>대소문자 차이</span>
     <span class="legend-item"><span class="legend-word wd-ws-del">·</span>공백 삭제</span>
     <span class="legend-item"><span class="legend-word wd-ws-add">·</span>공백 추가</span>
   </div>
 
+  <!-- ===== 컬럼 헤더: 원본/수정본 파일 경로 표시 ===== -->
   <div class="diff-col-header">
     <div class="diff-col-gutter"></div>
+    <!-- 원본 파일 경로 (빨간색 라벨) -->
     <div class="diff-col-pane"><span class="col-label col-label-a">{{ word_dir_name }} / {{ filename }}</span></div>
     <div class="diff-col-gutter"></div>
+    <!-- 수정본 파일 경로 (초록색 라벨) -->
     <div class="diff-col-pane"><span class="col-label col-label-b">{{ code_dir_name }} / {{ filename }}</span></div>
   </div>
 
+  <!-- ===== Diff 테이블: 실제 비교 내용 표시 ===== -->
   <div class="diff-table-wrap" id="diff-table-wrap">
     <table class="diff-table">
       <tbody>
+      <!-- 각 행(row)을 순회하며 diff 테이블 생성 -->
       {% for row in rows %}
       {% if row.type == "empty-file" %}
+      <!-- 빈 파일 행: 양쪽 모두 "빈 파일" 메시지 표시 -->
       <tr class="diff-row diff-empty-file"><td class="gutter gutter-a"></td><td class="code code-a" colspan="1"><span class="empty-file-msg">빈 파일</span></td><td class="gutter gutter-b"></td><td class="code code-b" colspan="1"><span class="empty-file-msg">빈 파일</span></td></tr>
       {% else %}
-      <tr class="diff-row diff-{{ row.type }}"><td class="gutter gutter-a">{% if row.lineno_a is not none %}{{ row.lineno_a }}{% endif %}</td><td class="code code-a"><span class="line-mark {% if row.type == "delete" or row.type == "replace" %}line-mark-del{% endif %}">{% if row.type == "delete" or row.type == "replace" %}&#8722;{% endif %}</span><span class="line-text">{{ row.html_a|safe }}</span></td><td class="gutter gutter-b">{% if row.lineno_b is not none %}{{ row.lineno_b }}{% endif %}</td><td class="code code-b"><span class="line-mark {% if row.type == "insert" or row.type == "replace" %}line-mark-add{% endif %}">{% if row.type == "insert" or row.type == "replace" %}+{% endif %}</span><span class="line-text">{{ row.html_b|safe }}</span></td></tr>
+      <!-- 일반 행: 4열 구성 (원본 줄번호 | 원본 코드 | 수정본 줄번호 | 수정본 코드) -->
+      <tr class="diff-row diff-{{ row.type }}">
+        <!-- 원본 줄 번호 (gutter) -->
+        <td class="gutter gutter-a">{% if row.lineno_a is not none %}{{ row.lineno_a }}{% endif %}</td>
+        <!-- 원본 코드: 삭제/변경 시 '-' 기호 표시 + 단어 단위 diff HTML -->
+        <td class="code code-a"><span class="line-mark {% if row.type == "delete" or row.type == "replace" %}line-mark-del{% endif %}">{% if row.type == "delete" or row.type == "replace" %}&#8722;{% endif %}</span><span class="line-text">{{ row.html_a|safe }}</span></td>
+        <!-- 수정본 줄 번호 (gutter) -->
+        <td class="gutter gutter-b">{% if row.lineno_b is not none %}{{ row.lineno_b }}{% endif %}</td>
+        <!-- 수정본 코드: 추가/변경 시 '+' 기호 표시 + 단어 단위 diff HTML -->
+        <td class="code code-b"><span class="line-mark {% if row.type == "insert" or row.type == "replace" %}line-mark-add{% endif %}">{% if row.type == "insert" or row.type == "replace" %}+{% endif %}</span><span class="line-text">{{ row.html_b|safe }}</span></td>
+      </tr>
       {% endif %}
       {% endfor %}
       </tbody>
     </table>
 
-    <!-- [M4] 변경 위치 미니맵 -->
+    <!-- [M4] 변경 위치 미니맵: 스크롤바 옆에 변경 위치를 시각적으로 표시 -->
     {% if changed > 0 %}
     <div class="diff-minimap" id="diff-minimap"></div>
     {% endif %}
@@ -62,61 +95,76 @@
 </div>
 
 <script>
-/* ── [M4] 변경 네비게이션 + 미니맵 ── */
+/* ── [M4] 변경 네비게이션 + 미니맵 ──
+   변경된 줄 간 이동 기능과 전체 파일 대비 변경 위치를 시각적으로 표시하는 미니맵 */
 (function() {
   var wrap = document.getElementById('diff-table-wrap');
-  if (!wrap) return;
+  if (!wrap) return;  // diff 테이블이 없으면 실행 안 함
 
+  // 변경된 행(equal, empty-file 제외)만 선택
   var changeRows = Array.from(wrap.querySelectorAll('.diff-row:not(.diff-equal):not(.diff-empty-file)'));
-  if (changeRows.length === 0) return;
+  if (changeRows.length === 0) return;  // 변경된 줄이 없으면 실행 안 함
 
-  var currentIdx = -1;
-  var posEl  = document.getElementById('change-pos');
-  var prevBtn = document.getElementById('btn-prev-change');
-  var nextBtn = document.getElementById('btn-next-change');
+  var currentIdx = -1;  // 현재 포커스된 변경 행의 인덱스 (-1: 아직 선택 안 됨)
+  var posEl  = document.getElementById('change-pos');        // "N/M" 위치 표시 요소
+  var prevBtn = document.getElementById('btn-prev-change');  // 이전 변경 버튼
+  var nextBtn = document.getElementById('btn-next-change');  // 다음 변경 버튼
 
+  /**
+   * 지정된 인덱스의 변경 행으로 이동.
+   * 순환 방식: 처음에서 이전 누르면 마지막으로, 마지막에서 다음 누르면 처음으로 이동.
+   * @param {number} idx - 이동할 변경 행 인덱스
+   */
   function goToChange(idx) {
-    if (idx < 0) idx = changeRows.length - 1;
-    if (idx >= changeRows.length) idx = 0;
+    // 범위 초과 시 순환 처리
+    if (idx < 0) idx = changeRows.length - 1;   // 처음 이전 → 마지막으로
+    if (idx >= changeRows.length) idx = 0;      // 마지막 다음 → 처음으로
 
-    // 이전 하이라이트 제거
+    // 이전 포커스 행의 하이라이트 제거
     if (currentIdx >= 0 && currentIdx < changeRows.length) {
       changeRows[currentIdx].classList.remove('diff-row-focus');
     }
 
+    // 새 행에 포커스 하이라이트 추가 및 화면 중앙으로 스크롤
     currentIdx = idx;
     changeRows[idx].classList.add('diff-row-focus');
     changeRows[idx].scrollIntoView({ block: 'center', behavior: 'smooth' });
+    // 위치 표시 업데이트 (예: "3/15")
     if (posEl) posEl.textContent = (idx + 1) + '/' + changeRows.length;
   }
 
+  // 이전/다음 변경 버튼 클릭 이벤트 연결
   if (prevBtn) prevBtn.addEventListener('click', function() { goToChange(currentIdx - 1); });
   if (nextBtn) nextBtn.addEventListener('click', function() { goToChange(currentIdx + 1); });
 
+  // 키보드 단축키: F7(다음 변경), Shift+F7(이전 변경)
   document.addEventListener('keydown', function(e) {
     if (e.key === 'F7') {
-      e.preventDefault();
-      if (e.shiftKey) goToChange(currentIdx - 1);
-      else goToChange(currentIdx + 1);
+      e.preventDefault();  // 브라우저 기본 F7 동작 방지
+      if (e.shiftKey) goToChange(currentIdx - 1);  // Shift+F7: 이전
+      else goToChange(currentIdx + 1);              // F7: 다음
     }
   });
 
-  // 미니맵 생성
+  // ── 미니맵 생성: 전체 파일 대비 변경 위치를 시각적으로 표시 ──
   var minimap = document.getElementById('diff-minimap');
   if (minimap) {
-    var allRows = Array.from(wrap.querySelectorAll('.diff-row'));
+    var allRows = Array.from(wrap.querySelectorAll('.diff-row'));  // 전체 행
     var total = allRows.length;
     if (total > 0) {
+      // 각 변경 행의 위치를 백분율로 계산하여 마커 생성
       changeRows.forEach(function(row, ci) {
-        var rowIdx = allRows.indexOf(row);
-        var pct = (rowIdx / total) * 100;
+        var rowIdx = allRows.indexOf(row);        // 전체 행 중 몇 번째인지
+        var pct = (rowIdx / total) * 100;          // 백분율 위치
         var marker = document.createElement('div');
         marker.className = 'minimap-marker';
+        // 변경 유형에 따른 마커 색상 클래스 지정
         var cls = row.classList;
-        if (cls.contains('diff-delete')) marker.classList.add('minimap-del');
-        else if (cls.contains('diff-insert')) marker.classList.add('minimap-add');
-        else marker.classList.add('minimap-replace');
-        marker.style.top = pct + '%';
+        if (cls.contains('diff-delete')) marker.classList.add('minimap-del');      // 삭제: 빨간색
+        else if (cls.contains('diff-insert')) marker.classList.add('minimap-add'); // 추가: 초록색
+        else marker.classList.add('minimap-replace');                               // 변경: 노란색
+        marker.style.top = pct + '%';  // 세로 위치를 백분율로 설정
+        // 마커 클릭 시 해당 변경 행으로 이동
         marker.setAttribute('data-ci', ci);
         marker.addEventListener('click', function() { goToChange(parseInt(this.getAttribute('data-ci'))); });
         minimap.appendChild(marker);

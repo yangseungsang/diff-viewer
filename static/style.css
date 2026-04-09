@@ -1,48 +1,63 @@
 /* =========================================================
-   Reset & base
+   Reset & base — 전역 초기화 및 기본 스타일
    ========================================================= */
+
+/* 모든 요소에 border-box 모델 적용 + 기본 margin/padding 제거 */
 *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+/* CSS 커스텀 속성(변수) 정의: 색상, 폰트, 레이아웃 값을 중앙 관리 */
 :root {
+  /* 사이드바 기본 너비 (JS 리사이저로 동적 변경 가능) */
   --sidebar-w: 250px;
+  /* UI용 시스템 폰트 스택 */
   --font-ui:   -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  /* 코드/diff 표시용 모노스페이스 폰트 스택 */
   --font-code: "JetBrains Mono", "Fira Code", "Consolas", monospace;
 
+  /* 페이지 배경색 */
   --bg-page:    #f6f7f9;
+  /* 사이드바 배경색 (어두운 테마) */
   --bg-sidebar: #1e1e2e;
+  /* 메인 콘텐츠 배경색 */
   --bg-main:    #ffffff;
 
-  --text-primary:   #1a1a2e;
-  --text-secondary: #6b7280;
-  --text-sidebar:   #c9d1e0;
-  --text-sidebar-m: #6e7a99;
+  /* 텍스트 색상 */
+  --text-primary:   #1a1a2e;    /* 본문 기본 색상 */
+  --text-secondary: #6b7280;    /* 보조 텍스트 (설명, 라벨 등) */
+  --text-sidebar:   #c9d1e0;    /* 사이드바 일반 텍스트 */
+  --text-sidebar-m: #6e7a99;    /* 사이드바 뮤트 텍스트 (라벨, 힌트) */
 
-  --border:         #e5e7eb;
-  --border-sidebar: #2e2e44;
+  /* 테두리 색상 */
+  --border:         #e5e7eb;    /* 메인 콘텐츠 영역 테두리 */
+  --border-sidebar: #2e2e44;    /* 사이드바 영역 테두리 */
 
-  /* diff — 줄 배경 */
-  --diff-del-bg:      #fff0f0;
-  --diff-del-gutter:  #ffe0e0;
-  --diff-add-bg:      #f0fff4;
-  --diff-add-gutter:  #d4f5e0;
-  /* [H4] replace 양쪽 모두 동일한 노란색 배경 */
-  --diff-replace-bg-a:#fff8e6;
-  --diff-replace-bg-b:#fff8e6;
+  /* diff 줄 배경색 — 삭제된 줄 */
+  --diff-del-bg:      #fff0f0;  /* 삭제 줄 코드 영역 배경 (연한 빨간) */
+  --diff-del-gutter:  #ffe0e0;  /* 삭제 줄 거터 배경 */
+  /* diff 줄 배경색 — 추가된 줄 */
+  --diff-add-bg:      #f0fff4;  /* 추가 줄 코드 영역 배경 (연한 초록) */
+  --diff-add-gutter:  #d4f5e0;  /* 추가 줄 거터 배경 */
+  /* [H4] replace 줄 배경색 — 양쪽 모두 동일한 노란색으로 통일 */
+  --diff-replace-bg-a:#fff8e6;  /* 변경 줄 원본 쪽 배경 */
+  --diff-replace-bg-b:#fff8e6;  /* 변경 줄 수정본 쪽 배경 */
+  /* 동일한 줄 배경색 */
   --diff-equal-bg:    #ffffff;
+  /* 거터(줄 번호) 영역 기본 스타일 */
   --diff-gutter-bg:   #f9fafb;
   --diff-gutter-text: #9ca3af;
 
-  /* diff — 기호 색 */
-  --mark-del: #e53e3e;
-  --mark-add: #38a169;
+  /* diff 기호 색상 — 삭제(-) / 추가(+) 기호 */
+  --mark-del: #e53e3e;          /* 삭제 기호 빨간색 */
+  --mark-add: #38a169;          /* 추가 기호 초록색 */
 
-  /* 단어 단위 diff */
-  --wd-only-bg:    #fecaca;   /* 빨간: 한쪽에만 존재 */
-  --wd-only-text:  #991b1b;
-  --wd-diff-bg:    #bfdbfe;   /* 파란: 철자/대소문자 차이 */
-  --wd-diff-text:  #1e3a8a;
+  /* 단어 단위 diff 하이라이트 색상 */
+  --wd-only-bg:    #fecaca;     /* 한쪽에만 존재하는 단어 배경 (빨간) */
+  --wd-only-text:  #991b1b;     /* 한쪽에만 존재하는 단어 글자색 */
+  --wd-diff-bg:    #bfdbfe;     /* 대소문자 차이 배경 (파란) */
+  --wd-diff-text:  #1e3a8a;     /* 대소문자 차이 글자색 */
 }
 
+/* 전역 body 스타일: UI 폰트, 배경색, 기본 텍스트 설정 */
 body {
   font-family: var(--font-ui);
   background: var(--bg-page);
@@ -52,25 +67,30 @@ body {
 }
 
 /* =========================================================
-   Layout
+   Layout — 사이드바 + 메인 콘텐츠의 flex 레이아웃
    ========================================================= */
+
+/* 전체 레이아웃 컨테이너: 최소 높이 100vh의 가로 flex */
 .layout { display: flex; min-height: 100vh; }
 
 /* =========================================================
-   Sidebar
+   Sidebar — 왼쪽 네비게이션 사이드바
    ========================================================= */
+
+/* 사이드바 컨테이너: 고정 너비, sticky 포지션으로 스크롤 시 고정 */
 .sidebar {
   width: var(--sidebar-w);
   min-width: var(--sidebar-w);
   background: var(--bg-sidebar);
   display: flex;
-  flex-direction: column;
-  position: sticky;
+  flex-direction: column;     /* 세로 방향 flex 레이아웃 */
+  position: sticky;           /* 스크롤 시 화면 상단에 고정 */
   top: 0;
-  height: 100vh;
-  overflow-y: auto;
+  height: 100vh;              /* 뷰포트 전체 높이 */
+  overflow-y: auto;           /* 내용이 넘칠 경우 세로 스크롤 */
 }
 
+/* 사이드바 헤더: 로고 + 타이틀 영역 */
 .sidebar-header {
   display: flex;
   align-items: center;
@@ -78,6 +98,7 @@ body {
   border-bottom: 1px solid var(--border-sidebar);
 }
 
+/* 로고 링크: 클릭 시 메인 페이지로 이동 */
 .sidebar-logo-link {
   display: flex;
   align-items: center;
@@ -85,33 +106,38 @@ body {
   text-decoration: none;
 }
 
+/* 로고 아이콘 스타일 (보라색 양방향 화살표) */
 .sidebar-logo  { font-size: 20px; color: #a78bfa; }
+/* 타이틀 텍스트 스타일 */
 .sidebar-title { font-size: 15px; font-weight: 600; color: #e2e8f0; letter-spacing: 0.02em; }
 
-/* 현재 선택된 시험 컨텍스트 바 */
+/* 현재 선택된 시험 컨텍스트 바 (현재 미사용, 확장 가능) */
 .sidebar-context {
   display: flex;
   align-items: center;
   gap: 8px;
   padding: 7px 14px;
-  background: rgba(167,139,250,0.1);
+  background: rgba(167,139,250,0.1);      /* 보라색 반투명 배경 */
   border-bottom: 1px solid rgba(167,139,250,0.2);
 }
+/* 컨텍스트 라벨: 작은 대문자 스타일 */
 .context-label {
   font-size: 10px; font-weight: 600;
   letter-spacing: 0.06em; text-transform: uppercase;
   color: #a78bfa; flex-shrink: 0;
 }
+/* 컨텍스트 시험명: 길면 말줄임 처리 */
 .context-exam {
   font-size: 12px; font-weight: 600; color: #e2e8f0;
   overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
 }
 
-/* 베이스라인 선택 */
+/* ── 베이스라인 선택 드롭다운 ── */
 .sidebar-baseline {
   padding: 10px 12px 8px;
   border-bottom: 1px solid var(--border-sidebar);
 }
+/* "베이스라인" 라벨 */
 .baseline-label {
   display: block;
   font-size: 10px; font-weight: 600;
@@ -119,9 +145,10 @@ body {
   color: var(--text-sidebar-m);
   margin-bottom: 5px;
 }
+/* 드롭다운 select 요소: 어두운 테마에 맞춘 커스텀 스타일 */
 .baseline-select {
   width: 100%;
-  background: rgba(255,255,255,0.07);
+  background: rgba(255,255,255,0.07);             /* 반투명 흰색 배경 */
   border: 1px solid rgba(255,255,255,0.1);
   border-radius: 6px;
   color: #e2e8f0;
@@ -131,21 +158,25 @@ body {
   cursor: pointer;
   outline: none;
   transition: border-color 0.15s;
-  appearance: none;
+  appearance: none;                                /* 기본 브라우저 스타일 제거 */
   -webkit-appearance: none;
+  /* 커스텀 드롭다운 화살표 (SVG 인라인) */
   background-image: url("data:image/svg+xml,%3Csvg width='10' height='6' viewBox='0 0 10 6' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1L5 5L9 1' stroke='%236e7a99' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
   background-repeat: no-repeat;
   background-position: right 10px center;
 }
+/* 포커스 시 보라색 테두리 */
 .baseline-select:focus { border-color: #a78bfa; }
+/* 드롭다운 옵션 스타일 */
 .baseline-select option { background: #1e1e2e; color: #e2e8f0; }
 
-/* 검색창 */
+/* ── 검색창 ── */
 .sidebar-search {
   padding: 10px 12px 6px;
   border-bottom: 1px solid var(--border-sidebar);
 }
 
+/* 검색 입력 래퍼: 아이콘 + 입력 필드 + 지우기 버튼을 감싸는 flex 컨테이너 */
 .search-input-wrap {
   display: flex;
   align-items: center;
@@ -156,29 +187,38 @@ body {
   gap: 6px;
   transition: border-color 0.15s;
 }
+/* 포커스 시 보라색 테두리 + 약간 밝은 배경 */
 .search-input-wrap:focus-within { border-color: #a78bfa; background: rgba(167,139,250,0.08); }
 
+/* 검색 돋보기 아이콘 */
 .search-icon  { color: var(--text-sidebar-m); display: flex; align-items: center; flex-shrink: 0; }
+/* 검색 입력 필드: 투명 배경, 테두리 없음 */
 .search-input {
   flex: 1; background: transparent; border: none; outline: none;
   color: #e2e8f0; font-size: 13px; padding: 7px 0; font-family: var(--font-ui);
 }
+/* 플레이스홀더 색상 */
 .search-input::placeholder { color: var(--text-sidebar-m); }
+/* 검색어 지우기(X) 버튼 */
 .search-clear {
   background: transparent; border: none; color: var(--text-sidebar-m);
   cursor: pointer; font-size: 11px; padding: 2px 4px; border-radius: 3px;
   transition: color 0.15s;
 }
 .search-clear:hover { color: #e2e8f0; }
+/* 검색 결과 개수 표시 */
 .search-count { font-size: 11px; color: var(--text-sidebar-m); padding: 4px 2px 0; text-align: right; }
+/* 검색어 매칭 하이라이트 */
 mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radius: 2px; padding: 0 1px; }
 
-/* 네비게이션 */
+/* ── 네비게이션 (파일 목록) ── */
+/* 파일 목록 영역: 남은 공간을 채우며 스크롤 가능 */
 .sidebar-nav { flex: 1; padding: 4px 0 12px; overflow-y: auto; }
 
-/* 시험 그룹 */
+/* 시험 그룹 컨테이너 (현재 미사용, 확장 가능) */
 .exam-group { border-bottom: 1px solid var(--border-sidebar); }
 
+/* 시험 그룹 헤더 버튼 */
 .exam-header {
   width: 100%;
   display: flex;
@@ -196,10 +236,13 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
   transition: background 0.15s;
 }
 .exam-header:hover { background: rgba(255,255,255,0.05); }
+/* 활성 시험 그룹 헤더 스타일 */
 .exam-header-active { background: rgba(167,139,250,0.08) !important; color: #e2e8f0 !important; }
 .exam-header-active:hover { background: rgba(167,139,250,0.13) !important; }
+/* 활성 시험 그룹: 왼쪽 보라색 테두리 */
 .exam-group-active { border-left: 2px solid #a78bfa; }
 
+/* 활성 시험 표시 점 (보라색 원) */
 .exam-active-dot {
   width: 6px; height: 6px;
   border-radius: 50%;
@@ -207,13 +250,16 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
   flex-shrink: 0;
 }
 
+/* 시험 그룹 펼침/접힘 화살표 */
 .exam-chevron {
   font-size: 9px;
   color: var(--text-sidebar-m);
   transition: transform 0.2s;
   flex-shrink: 0;
 }
+/* 시험 ID: 길면 말줄임 */
 .exam-id { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 시험 파일 수 배지 */
 .exam-count {
   background: rgba(255,255,255,0.08);
   color: var(--text-sidebar-m);
@@ -224,8 +270,10 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
   flex-shrink: 0;
 }
 
+/* 시험 그룹 내 파일 목록 영역 */
 .exam-files { padding-bottom: 4px; }
 
+/* 섹션 라벨: "파일" + 변경 파일 수 카운트 */
 .nav-section-label {
   display: flex;
   align-items: center;
@@ -237,6 +285,7 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
   color: var(--text-sidebar-m);
   padding: 10px 16px 4px;
 }
+/* 섹션 카운트 배지 (예: "3/10") */
 .nav-section-count {
   background: rgba(255,255,255,0.08);
   color: var(--text-sidebar-m);
@@ -245,28 +294,36 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
   letter-spacing: 0; text-transform: none;
 }
 
+/* 개별 파일 항목: flex 레이아웃, 호버/활성 효과 */
 .nav-item {
   display: flex; align-items: center; gap: 8px;
   padding: 6px 16px;
   color: var(--text-sidebar);
   text-decoration: none;
   font-size: 12px;
-  border-left: 2px solid transparent;
+  border-left: 2px solid transparent;           /* 활성 시 보라색으로 변경 */
   transition: background 0.12s, border-color 0.12s;
   cursor: pointer;
 }
+/* 호버 시 약간 밝은 배경 */
 .nav-item:hover { background: rgba(255,255,255,0.06); color: #fff; }
+/* 현재 선택된 파일: 보라색 왼쪽 테두리 + 밝은 배경 */
 .nav-item.active { background: rgba(167,139,250,0.12); border-left-color: #a78bfa; color: #fff; }
+/* 비활성 파일 (클릭 불가) */
 .nav-item-disabled { opacity: 0.4; cursor: default; }
 
+/* 파일 상태 아이콘 (≠ 또는 =) */
 .nav-icon {
   display: inline-flex; align-items: center; justify-content: center;
   width: 16px; height: 16px; border-radius: 3px;
   font-size: 9px; font-weight: 700; flex-shrink: 0;
 }
+/* 변경된 파일 아이콘: 노란색 */
 .nav-icon-changed { background: rgba(251,191,36,0.2); color: #fbbf24; }
+/* 동일 파일 아이콘: 초록색 (반투명) */
 .nav-icon-same    { background: rgba(134,239,172,0.15); color: #4ade80; opacity: 0.6; }
 
+/* "변경" 배지: 파일 항목 오른쪽에 표시 */
 .nav-badge-changed {
   font-size: 9px; font-weight: 700;
   background: rgba(251,191,36,0.2); color: #fbbf24;
@@ -274,11 +331,12 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
   margin-left: auto; flex-shrink: 0;
 }
 
-/* 필터 버튼 */
+/* ── 필터 버튼 (전체/변경됨/동일) ── */
 .nav-filter {
   display: flex; gap: 4px;
   padding: 4px 12px 8px;
 }
+/* 개별 필터 버튼 */
 .nav-filter-btn {
   flex: 1; padding: 4px 0;
   font-size: 11px; font-weight: 600;
@@ -291,74 +349,94 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
   transition: all 0.15s;
 }
 .nav-filter-btn:hover { background: rgba(255,255,255,0.05); color: #cbd5e1; }
+/* 활성 필터 버튼: 보라색 배경/테두리 */
 .nav-filter-btn.active { background: rgba(167,139,250,0.15); border-color: rgba(167,139,250,0.3); color: #a78bfa; }
 
+/* 파일명: 길면 말줄임(...) 처리 */
 .nav-filename { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 빈 상태 / 검색 결과 없음 메시지 */
 .nav-empty, .nav-no-results { padding: 20px 16px; font-size: 12px; color: var(--text-sidebar-m); text-align: center; }
 
-/* 푸터 */
+/* ── 사이드바 푸터: 비교 방향 표시 ── */
 .sidebar-footer {
   padding: 10px 16px;
   border-top: 1px solid var(--border-sidebar);
   display: flex; align-items: center; gap: 6px; font-size: 11px;
 }
+/* 폴더 태그: 원본(빨간)/수정본(초록) 색상으로 구분 */
 .folder-tag { padding: 2px 6px; border-radius: 4px; font-weight: 600; font-size: 10px; }
-.folder-tag.a { background: rgba(252,165,165,0.15); color: #f87171; }
-.folder-tag.b { background: rgba(134,239,172,0.15); color: #4ade80; }
+.folder-tag.a { background: rgba(252,165,165,0.15); color: #f87171; }  /* 원본: 빨간 계열 */
+.folder-tag.b { background: rgba(134,239,172,0.15); color: #4ade80; }  /* 수정본: 초록 계열 */
+/* 방향 화살표 */
 .folder-arrow { color: var(--text-sidebar-m); }
 
 /* =========================================================
-   Sidebar resizer
+   Sidebar resizer — 사이드바 너비 조절 핸들
    ========================================================= */
+
+/* 리사이저: 사이드바와 메인 콘텐츠 사이의 드래그 가능한 세로 바 */
 .sidebar-resizer {
   width: 4px;
-  cursor: col-resize;
+  cursor: col-resize;         /* 좌우 리사이즈 커서 */
   background: transparent;
   flex-shrink: 0;
   transition: background 0.15s;
   position: relative;
   z-index: 10;
 }
+/* 클릭 영역을 넓히기 위한 가상 요소 (양쪽 2px씩 확장) */
 .sidebar-resizer::after {
   content: '';
   position: absolute;
   top: 0; bottom: 0;
   left: -2px; right: -2px;
 }
+/* 호버/드래그 시 보라색 표시 */
 .sidebar-resizer:hover,
 .sidebar-resizer:active {
   background: #a78bfa;
 }
 
 /* =========================================================
-   Main
+   Main — 메인 콘텐츠 영역
    ========================================================= */
+
+/* 메인 영역: 남은 공간을 채우며 가로 스크롤 허용 */
 .main { flex: 1; min-width: 0; overflow-x: auto; }
 
 /* =========================================================
-   Home
+   Home — 메인 페이지 (파일 선택 화면)
    ========================================================= */
+
+/* 홈 페이지 래퍼: 최대 너비 제한 + 중앙 정렬 */
 .home-wrap { max-width: 800px; margin: 0 auto; padding: 48px 32px 80px; }
 
+/* 페이지 제목 */
 .home-title { font-size: 26px; font-weight: 700; margin-bottom: 8px; }
+/* 안내 문구 */
 .home-desc  { font-size: 14px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 36px; }
 
+/* 통계 카드 그리드: 2열 레이아웃 */
 .home-stats {
   display: grid; grid-template-columns: repeat(2, 1fr);
   gap: 16px; margin-bottom: 36px;
 }
+/* 개별 통계 카드 */
 .stat-card {
   background: var(--bg-main); border: 1px solid var(--border);
   border-radius: 10px; padding: 20px; text-align: center;
 }
+/* 통계 숫자 (크게 표시) */
 .stat-num   { font-size: 30px; font-weight: 700; }
+/* 통계 라벨 */
 .stat-label { font-size: 12px; color: var(--text-secondary); margin-top: 4px; }
 
-/* 시험 카드 */
+/* ── 베이스라인 파일 목록 카드 ── */
 .exam-card {
   background: var(--bg-main); border: 1px solid var(--border);
   border-radius: 10px; margin-bottom: 20px; overflow: hidden;
 }
+/* 카드 헤더: 베이스라인명 + 변경 파일 수 */
 .exam-card-header {
   display: flex; align-items: center; gap: 14px;
   padding: 14px 20px;
@@ -366,9 +444,11 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 }
 .exam-card-id   { font-size: 14px; font-weight: 700; color: var(--text-primary); }
 .exam-card-meta { font-size: 12px; color: var(--text-secondary); }
+/* 카드 내 파일 리스트 컨테이너 */
 .exam-card-files { display: flex; flex-direction: column; gap: 0; }
 .exam-card-empty { padding: 16px 20px; font-size: 13px; color: var(--text-secondary); }
 
+/* 개별 파일 카드: 클릭 가능한 링크 */
 .file-card {
   display: flex; align-items: center; gap: 12px;
   padding: 11px 20px;
@@ -376,19 +456,21 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
   border-top: 1px solid var(--border);
   transition: background 0.12s;
 }
-.file-card:first-child { border-top: none; }
-.file-card:hover { background: #f5f3ff; }
+.file-card:first-child { border-top: none; }          /* 첫 항목은 상단 테두리 제거 */
+.file-card:hover { background: #f5f3ff; }              /* 호버 시 연보라 배경 */
 .file-card-icon  { font-size: 15px; }
 .file-card-name  { flex: 1; font-size: 13px; font-weight: 500; }
-.file-card-arrow { color: var(--text-secondary); }
-.file-card-changed { color: #d97706; }
-.file-card-same    { color: #16a34a; opacity: 0.5; }
+.file-card-arrow { color: var(--text-secondary); }      /* 이동 화살표 */
+.file-card-changed { color: #d97706; }                  /* 변경 아이콘: 주황색 */
+.file-card-same    { color: #16a34a; opacity: 0.5; }    /* 동일 아이콘: 연초록 */
+/* "변경" 배지 */
 .file-card-badge-changed {
   font-size: 10px; font-weight: 600;
   background: #fef3c7; color: #92400e;
   padding: 1px 7px; border-radius: 8px;
   margin-left: auto;
 }
+/* "동일" 배지 */
 .file-card-badge-same {
   font-size: 10px; font-weight: 600;
   background: #ecfdf5; color: #065f46;
@@ -396,15 +478,18 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
   margin-left: auto; opacity: 0.7;
 }
 
+/* 빈 상태 안내 박스 */
 .home-empty {
   background: var(--bg-main); border: 1px solid var(--border);
   border-radius: 10px; padding: 32px; text-align: center;
   color: var(--text-secondary); line-height: 2;
 }
+/* 인라인 코드 스타일 */
 .home-empty code {
   font-family: var(--font-code); background: #f3f4f6;
   padding: 2px 6px; border-radius: 4px; font-size: 12px; color: #374151;
 }
+/* 폴더 트리 구조 표시 블록 */
 .home-tree {
   display: inline-block; margin-top: 16px; text-align: left;
   font-family: var(--font-code); font-size: 12px;
@@ -413,19 +498,23 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 }
 
 /* =========================================================
-   Diff page
+   Diff page — 파일 비교 페이지
    ========================================================= */
+
+/* Diff 페이지 래퍼: 뷰포트 전체 높이의 세로 flex 레이아웃 */
 .diff-wrap { display: flex; flex-direction: column; height: 100vh; }
 
+/* Diff 헤더: 파일 정보 + 통계 + 네비게이션 */
 .diff-header {
   display: flex; align-items: center; justify-content: space-between;
   padding: 12px 20px;
   background: var(--bg-main); border-bottom: 1px solid var(--border);
-  flex-shrink: 0;
+  flex-shrink: 0;               /* 스크롤 시에도 크기 유지 */
 }
 .diff-header-left  { display: flex; align-items: center; gap: 12px; }
 .diff-header-right { display: flex; align-items: center; gap: 8px; }
 
+/* 뒤로가기(목록) 버튼 */
 .back-btn {
   font-size: 12px; color: var(--text-secondary); text-decoration: none;
   padding: 4px 10px; border: 1px solid var(--border); border-radius: 6px;
@@ -433,19 +522,22 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 }
 .back-btn:hover { background: #f3f4f6; }
 
+/* 베이스라인 배지 (보라색) */
 .diff-exam-badge {
   font-size: 11px; font-weight: 700;
   background: #ede9fe; color: #5b21b6;
   padding: 3px 8px; border-radius: 12px;
 }
+/* 파일명: 모노스페이스 폰트 */
 .diff-filename { font-size: 14px; font-weight: 600; font-family: var(--font-code); }
 
+/* 범용 배지 스타일 */
 .badge { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 20px; }
-.badge-total   { background: #f3f4f6; color: #374151; }
-.badge-same    { background: #ecfdf5; color: #065f46; }
-.badge-changed { background: #fef3c7; color: #92400e; }
+.badge-total   { background: #f3f4f6; color: #374151; }  /* 전체 줄 수: 회색 */
+.badge-same    { background: #ecfdf5; color: #065f46; }  /* 변경 없음: 초록 */
+.badge-changed { background: #fef3c7; color: #92400e; }  /* 변경 있음: 노란 */
 
-/* 범례 */
+/* ── 범례: diff 색상 의미 설명 바 ── */
 .diff-legend {
   display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
   padding: 6px 20px;
@@ -453,82 +545,97 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
   flex-shrink: 0; font-size: 11px; color: var(--text-secondary);
 }
 .legend-item { display: flex; align-items: center; gap: 5px; }
+/* 범례 색상 점 */
 .legend-dot {
   width: 10px; height: 10px; border-radius: 2px; flex-shrink: 0;
 }
-.dot-del     { background: #fecaca; border: 1px solid #fca5a5; }
-.dot-add     { background: #bbf7d0; border: 1px solid #86efac; }
-.dot-replace { background: #fef08a; border: 1px solid #fde047; }
+.dot-del     { background: #fecaca; border: 1px solid #fca5a5; }  /* 삭제: 빨간 */
+.dot-add     { background: #bbf7d0; border: 1px solid #86efac; }  /* 추가: 초록 */
+.dot-replace { background: #fef08a; border: 1px solid #fde047; }  /* 변경: 노란 */
 
+/* 범례 구분선 (세로 선) */
 .legend-sep { width: 1px; height: 14px; background: var(--border); flex-shrink: 0; }
+/* 범례 단어 샘플 */
 .legend-word {
   display: inline-block; font-size: 11px; font-weight: 600;
   padding: 0 4px; border-radius: 3px;
 }
 
-/* 컬럼 헤더 */
+/* ── 컬럼 헤더: 원본/수정본 파일 경로 표시 ── */
 .diff-col-header {
-  display: grid; grid-template-columns: 52px 1fr 52px 1fr;
+  display: grid; grid-template-columns: 52px 1fr 52px 1fr;  /* 거터 + 코드 × 2 */
   background: #f9fafb; border-bottom: 1px solid var(--border);
   flex-shrink: 0;
 }
 .diff-col-gutter { background: var(--diff-gutter-bg); }
 .diff-col-pane   { padding: 7px 12px; border-right: 1px solid var(--border); }
+/* 컬럼 라벨: 모노스페이스 폰트 */
 .col-label       { font-size: 11px; font-weight: 600; font-family: var(--font-code); }
-.col-label-a     { color: #dc2626; }
-.col-label-b     { color: #16a34a; }
+.col-label-a     { color: #dc2626; }  /* 원본 라벨: 빨간색 */
+.col-label-b     { color: #16a34a; }  /* 수정본 라벨: 초록색 */
 
-/* 테이블 */
+/* ── Diff 테이블 ── */
+/* 테이블 래퍼: 남은 공간을 채우며 스크롤 가능 */
 .diff-table-wrap { flex: 1; overflow: auto; }
 
+/* diff 테이블: 고정 레이아웃, 모노스페이스 폰트 */
 .diff-table {
   width: 100%; border-collapse: collapse;
   font-family: var(--font-code); font-size: 13.5px;
   line-height: 1; table-layout: fixed;
 }
 
+/* 테이블 셀 기본 스타일 */
 .diff-row > td { padding: 0; vertical-align: middle; border-bottom: 1px solid #f3f4f6; line-height: 1; }
 
+/* 거터(줄 번호) 셀: 고정 너비 52px, 오른쪽 정렬 */
 .gutter {
   width: 52px; min-width: 52px; max-width: 52px;
   text-align: right; padding: 5px 10px 5px 6px !important;
   font-size: 12px; line-height: 2.2;
-  color: var(--diff-gutter-text); user-select: none;
+  color: var(--diff-gutter-text); user-select: none;     /* 줄 번호 선택 방지 */
   background: var(--diff-gutter-bg); border-right: 1px solid var(--border);
 }
 
-/* [M3] 긴 줄이 잘리지 않도록 overflow-x: auto */
+/* [M3] 코드 셀: 긴 줄이 잘리지 않도록 가로 스크롤 허용 */
 .code {
-  padding: 5px 14px !important; white-space: pre;
+  padding: 5px 14px !important; white-space: pre;         /* 공백/줄바꿈 보존 */
   overflow-x: auto; border-right: 1px solid var(--border); line-height: 2.2;
 }
 
+/* 줄 앞의 기호 (- 또는 +) */
 .line-mark {
   display: inline-block; width: 14px;
   font-weight: 700; font-size: 12px;
   margin-right: 4px; user-select: none;
 }
-.line-mark-del { color: var(--mark-del); }
-.line-mark-add { color: var(--mark-add); }
+.line-mark-del { color: var(--mark-del); }  /* 삭제 기호 (-): 빨간색 */
+.line-mark-add { color: var(--mark-add); }  /* 추가 기호 (+): 초록색 */
 
-/* 행 배경 */
+/* ── 행 배경색: 변경 유형별로 다른 배경 ── */
+/* 동일한 줄: 흰색 배경 */
 .diff-equal   .code-a, .diff-equal   .code-b { background: var(--diff-equal-bg); }
 .diff-equal   .gutter                         { background: var(--diff-gutter-bg); }
+/* 삭제된 줄: 빨간 계열 배경 (원본 쪽만) */
 .diff-delete  .code-a                         { background: var(--diff-del-bg); }
 .diff-delete  .gutter-a                       { background: var(--diff-del-gutter); }
 .diff-delete  .code-b, .diff-delete  .gutter-b{ background: var(--diff-equal-bg); }
+/* 추가된 줄: 초록 계열 배경 (수정본 쪽만) */
 .diff-insert  .code-b                         { background: var(--diff-add-bg); }
 .diff-insert  .gutter-b                       { background: var(--diff-add-gutter); }
 .diff-insert  .code-a, .diff-insert  .gutter-a{ background: var(--diff-equal-bg); }
+/* 변경된 줄: 노란 계열 배경 (양쪽 모두) */
 .diff-replace .code-a                         { background: var(--diff-replace-bg-a); }
 .diff-replace .gutter-a                       { background: #fff3cd; }
 .diff-replace .code-b                         { background: var(--diff-replace-bg-b); }
 .diff-replace .gutter-b                       { background: #fff3cd; }
 
+/* 행 호버 효과: 약간 어둡게 */
 .diff-row:hover .code-a,
 .diff-row:hover .code-b { filter: brightness(0.97); }
 
-/* ── 단어 단위 diff 하이라이트 ── */
+/* ── 단어 단위 diff 하이라이트 스타일 ── */
+/* 한쪽에만 존재하는 단어: 빨간 배경 */
 span.wd-only {
   background: var(--wd-only-bg);
   color: var(--wd-only-text);
@@ -536,6 +643,7 @@ span.wd-only {
   padding: 0 2px;
   font-weight: 600;
 }
+/* 대소문자만 다른 단어: 파란 배경 */
 span.wd-diff {
   background: var(--wd-diff-bg);
   color: var(--wd-diff-text);
@@ -543,6 +651,7 @@ span.wd-diff {
   padding: 0 2px;
   font-weight: 600;
 }
+/* 삭제된 공백: 빨간 배경 + ·/→ 기호 */
 span.wd-ws-del {
   background: #fecaca;
   color: #991b1b;
@@ -551,6 +660,7 @@ span.wd-ws-del {
   font-weight: 600;
   font-size: 12px;
 }
+/* 추가된 공백: 초록 배경 + ·/→ 기호 */
 span.wd-ws-add {
   background: #bbf7d0;
   color: #166534;
@@ -572,7 +682,7 @@ span.wd-ws-add {
   font-size: 12px;
 }
 
-/* ── [M4] 변경 네비게이션 버튼 ── */
+/* ── [M4] 변경 네비게이션 버튼 (▲/▼) ── */
 .nav-change-btn {
   background: #f3f4f6; border: 1px solid var(--border);
   border-radius: 4px; padding: 2px 6px;
@@ -581,24 +691,26 @@ span.wd-ws-add {
   transition: background 0.12s;
 }
 .nav-change-btn:hover { background: #e5e7eb; color: var(--text-primary); }
+/* 변경 위치 표시 (예: "3/15") */
 .nav-change-pos {
   font-size: 11px; font-weight: 600; color: var(--text-secondary);
   min-width: 40px; text-align: center;
 }
 
-/* 포커스된 변경 행 하이라이트 */
+/* 현재 포커스된 변경 행: 보라색 아웃라인 */
 .diff-row-focus > td { outline: 2px solid #a78bfa; outline-offset: -2px; }
 
-/* ── [M4] 미니맵 ── */
-.diff-table-wrap { position: relative; }
+/* ── [M4] 미니맵: 전체 파일 대비 변경 위치를 오른쪽에 시각적으로 표시 ── */
+.diff-table-wrap { position: relative; }  /* 미니맵의 absolute 기준점 */
 .diff-minimap {
   position: absolute;
   top: 0; right: 0; bottom: 0;
   width: 10px;
-  background: rgba(0,0,0,0.04);
+  background: rgba(0,0,0,0.04);   /* 반투명 배경 */
   z-index: 5;
-  pointer-events: auto;
+  pointer-events: auto;            /* 클릭 이벤트 활성화 */
 }
+/* 미니맵 마커: 각 변경 위치를 나타내는 작은 막대 */
 .minimap-marker {
   position: absolute;
   right: 1px; left: 1px;
@@ -607,16 +719,18 @@ span.wd-ws-add {
   opacity: 0.8;
   transition: opacity 0.12s;
 }
+/* 호버 시 마커 크기 확대 */
 .minimap-marker:hover { opacity: 1; height: 5px; }
+/* 마커 색상: 삭제(빨간), 추가(초록), 변경(노란) */
 .minimap-del     { background: #ef4444; }
 .minimap-add     { background: #22c55e; }
 .minimap-replace { background: #eab308; }
 
 /* =========================================================
-   반응형
+   반응형 — 모바일/태블릿 대응 (768px 이하)
    ========================================================= */
 @media (max-width: 768px) {
-  :root { --sidebar-w: 200px; }
-  .diff-col-header { grid-template-columns: 40px 1fr 40px 1fr; }
+  :root { --sidebar-w: 200px; }                              /* 사이드바 너비 축소 */
+  .diff-col-header { grid-template-columns: 40px 1fr 40px 1fr; }  /* 거터 너비 축소 */
   .gutter { width: 40px; min-width: 40px; max-width: 40px; }
 }

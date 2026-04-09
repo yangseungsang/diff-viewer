@@ -3,86 +3,108 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <!-- 페이지 제목: 각 자식 템플릿에서 오버라이드 가능 -->
   <title>{% block title %}Diff Viewer{% endblock %}</title>
+  <!-- 전역 스타일시트 로드 -->
   <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 </head>
 <body>
 
+<!-- 전체 레이아웃: 사이드바 + 메인 콘텐츠 영역의 flex 구조 -->
 <div class="layout">
 
+  <!-- ===== 사이드바 영역 ===== -->
   <aside class="sidebar">
 
+    <!-- 사이드바 헤더: 로고와 타이틀 -->
     <div class="sidebar-header">
       <a href="{{ url_for('index') }}" class="sidebar-logo-link">
+        <!-- 양방향 화살표(⇄) 아이콘으로 diff 도구 특성 표현 -->
         <span class="sidebar-logo">&#8644;</span>
         <span class="sidebar-title">Diff Viewer</span>
       </a>
     </div>
 
-    <!-- 베이스라인 선택 -->
+    <!-- 베이스라인 선택 드롭다운: 여러 베이스라인이 있을 때만 표시 -->
     {% if baselines %}
     <div class="sidebar-baseline">
       <label class="baseline-label" for="baseline-select">베이스라인</label>
+      <!-- 선택 변경 시 해당 베이스라인 페이지로 즉시 이동 -->
       <select id="baseline-select" class="baseline-select" onchange="location.href='/' + this.value">
         {% for b in baselines %}
+        <!-- 현재 선택된 베이스라인에 selected 속성 추가 -->
         <option value="{{ b }}" {% if b == current_baseline %}selected{% endif %}>{{ b }}</option>
         {% endfor %}
       </select>
     </div>
     {% endif %}
 
-    <!-- 검색창 -->
+    <!-- 파일 검색창: 사이드바 내 파일 필터링 -->
     <div class="sidebar-search">
       <div class="search-input-wrap">
+        <!-- 검색 아이콘 (SVG 돋보기) -->
         <span class="search-icon">
           <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
             <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/>
             <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
           </svg>
         </span>
+        <!-- 검색 입력 필드: 자동완성/맞춤법 검사 비활성화 -->
         <input type="text" id="sidebar-search" class="search-input"
                placeholder="파일 검색..." autocomplete="off" spellcheck="false">
+        <!-- 검색어 지우기 버튼: 검색어가 있을 때만 표시 -->
         <button id="search-clear" class="search-clear" title="지우기" style="display:none;">&#10005;</button>
       </div>
+      <!-- 검색 결과 개수 표시: 검색 중일 때만 표시 -->
       <div id="search-count" class="search-count" style="display:none;"></div>
     </div>
 
-    <!-- 파일 목록 -->
+    <!-- 파일 목록 네비게이션 -->
     <nav class="sidebar-nav" id="sidebar-nav">
 
+      <!-- 현재 diff 페이지에서 선택된 파일명 가져오기 (활성 표시용) -->
       {% set current_filename = request.view_args.get('filename') if request.view_args else None %}
 
       {% if files and files.files %}
+      <!-- 파일 섹션 헤더: "파일" 라벨 + 변경 파일 수/전체 파일 수 -->
       <div class="nav-section-label">
         파일
         <span class="nav-section-count">{{ files.changed_count }}/{{ files.files|length }}</span>
       </div>
+      <!-- 파일 필터 버튼: 전체/변경됨/동일 -->
       <div class="nav-filter">
         <button class="nav-filter-btn active" data-filter="all" onclick="filterFiles(this,'all')">전체</button>
         <button class="nav-filter-btn" data-filter="changed" onclick="filterFiles(this,'changed')">변경됨</button>
         <button class="nav-filter-btn" data-filter="unchanged" onclick="filterFiles(this,'unchanged')">동일</button>
       </div>
+      <!-- 각 파일 항목: 클릭 시 해당 파일의 diff 페이지로 이동 -->
       {% for f in files.files %}
       {% set is_active = (current_filename == f.name) %}
       <a href="{{ url_for('diff_view', baseline=current_baseline, filename=f.name) }}"
          class="nav-item {% if is_active %}active{% endif %}"
          data-filename="{{ f.name }}" data-changed="{{ 'true' if f.changed else 'false' }}">
+        <!-- 파일 상태 아이콘: 변경(≠) 또는 동일(=) -->
         {% if f.changed %}
         <span class="nav-icon nav-icon-changed">&#8800;</span>
         {% else %}
         <span class="nav-icon nav-icon-same">&#61;</span>
         {% endif %}
+        <!-- 파일명 표시 -->
         <span class="nav-filename">{{ f.name }}</span>
+        <!-- 변경된 파일에만 "변경" 배지 표시 -->
         {% if f.changed %}<span class="nav-badge-changed">변경</span>{% endif %}
       </a>
       {% endfor %}
       {% else %}
+      <!-- 파일이 없을 때 표시 -->
       <div class="nav-empty">파일이 없습니다</div>
       {% endif %}
 
+      <!-- 검색 결과 없음 메시지: 검색 시 매칭되는 파일이 없을 때 표시 -->
       <div class="nav-no-results" id="nav-no-results" style="display:none;">검색 결과가 없습니다</div>
     </nav>
 
+    <!-- 사이드바 푸터: 비교 방향 표시 (원본 → 수정본) -->
     <div class="sidebar-footer">
       <span class="folder-tag a">00.WordBase</span>
       <span class="folder-arrow">&#8594;</span>
@@ -91,8 +113,10 @@
 
   </aside>
 
+  <!-- 사이드바 리사이저: 드래그로 사이드바 너비 조절 -->
   <div class="sidebar-resizer" id="sidebar-resizer"></div>
 
+  <!-- 메인 콘텐츠 영역: 자식 템플릿의 content 블록이 여기에 삽입됨 -->
   <main class="main">
     {% block content %}{% endblock %}
   </main>
@@ -100,74 +124,86 @@
 </div>
 
 <script>
-/* ── 사이드바 리사이즈 ── */
+/* ── 사이드바 리사이즈 기능 ──
+   마우스 드래그로 사이드바 너비를 180px~500px 범위 내에서 조절 가능 */
 (function() {
-  var resizer = document.getElementById('sidebar-resizer');
-  var sidebar = document.querySelector('.sidebar');
-  var startX, startW;
+  var resizer = document.getElementById('sidebar-resizer');  // 리사이저 핸들 요소
+  var sidebar = document.querySelector('.sidebar');           // 사이드바 요소
+  var startX, startW;  // 드래그 시작 시의 마우스 X좌표와 사이드바 너비
 
+  // 마우스 누름 이벤트: 드래그 시작
   resizer.addEventListener('mousedown', function(e) {
-    startX = e.clientX;
-    startW = sidebar.offsetWidth;
-    document.body.style.cursor = 'col-resize';
-    document.body.style.userSelect = 'none';
-    document.addEventListener('mousemove', onMouseMove);
-    document.addEventListener('mouseup', onMouseUp);
+    startX = e.clientX;                           // 드래그 시작 X좌표 기록
+    startW = sidebar.offsetWidth;                 // 현재 사이드바 너비 기록
+    document.body.style.cursor = 'col-resize';    // 커서를 리사이즈 모양으로 변경
+    document.body.style.userSelect = 'none';      // 드래그 중 텍스트 선택 방지
+    document.addEventListener('mousemove', onMouseMove);  // 마우스 이동 리스너 등록
+    document.addEventListener('mouseup', onMouseUp);      // 마우스 놓기 리스너 등록
   });
 
+  // 마우스 이동 이벤트: 사이드바 너비 실시간 조절
   function onMouseMove(e) {
-    var newW = startW + (e.clientX - startX);
-    if (newW < 180) newW = 180;
-    if (newW > 500) newW = 500;
+    var newW = startW + (e.clientX - startX);  // 이동 거리만큼 너비 변경
+    if (newW < 180) newW = 180;  // 최소 너비 제한
+    if (newW > 500) newW = 500;  // 최대 너비 제한
     sidebar.style.width = newW + 'px';
     sidebar.style.minWidth = newW + 'px';
   }
 
+  // 마우스 놓기 이벤트: 드래그 종료 및 리스너 해제
   function onMouseUp() {
-    document.body.style.cursor = '';
-    document.body.style.userSelect = '';
-    document.removeEventListener('mousemove', onMouseMove);
+    document.body.style.cursor = '';             // 커서 원래대로 복원
+    document.body.style.userSelect = '';          // 텍스트 선택 다시 허용
+    document.removeEventListener('mousemove', onMouseMove);  // 리스너 해제
     document.removeEventListener('mouseup', onMouseUp);
   }
 }());
 
-/* ── 파일 필터 (전체/변경됨/동일) ── */
-var currentFilter = 'all';
+/* ── 파일 필터 기능 (전체/변경됨/동일) ──
+   사이드바의 파일 목록을 변경 여부에 따라 필터링 */
+var currentFilter = 'all';  // 현재 활성 필터 상태
 function filterFiles(btn, filter) {
   currentFilter = filter;
+  // 모든 필터 버튼에서 active 클래스 제거 후 클릭된 버튼에만 추가
   document.querySelectorAll('.nav-filter-btn').forEach(function(b) { b.classList.remove('active'); });
   btn.classList.add('active');
+  // 각 파일 항목의 data-changed 속성을 확인하여 표시/숨김 처리
   document.querySelectorAll('#sidebar-nav .nav-item').forEach(function(item) {
     var changed = item.getAttribute('data-changed') === 'true';
-    if (filter === 'all') item.style.display = '';
-    else if (filter === 'changed') item.style.display = changed ? '' : 'none';
-    else item.style.display = changed ? 'none' : '';
+    if (filter === 'all') item.style.display = '';                        // 전체: 모두 표시
+    else if (filter === 'changed') item.style.display = changed ? '' : 'none';  // 변경됨만 표시
+    else item.style.display = changed ? 'none' : '';                      // 동일한 것만 표시
   });
 }
 
-/* ── 사이드바 검색 ── */
+/* ── 사이드바 검색 기능 ──
+   파일명을 기준으로 실시간 필터링하며 매칭 부분을 하이라이트 표시 */
 (function () {
-  var input    = document.getElementById('sidebar-search');
-  var clearBtn = document.getElementById('search-clear');
-  var countEl  = document.getElementById('search-count');
-  var noResult = document.getElementById('nav-no-results');
+  var input    = document.getElementById('sidebar-search');   // 검색 입력 필드
+  var clearBtn = document.getElementById('search-clear');     // 검색어 지우기 버튼
+  var countEl  = document.getElementById('search-count');     // 결과 개수 표시 영역
+  var noResult = document.getElementById('nav-no-results');   // 결과 없음 메시지
 
+  // HTML 이스케이프 함수: XSS 방지
   function escHtml(s) {
     return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
   }
 
+  // 검색어에 따라 파일 목록을 필터링하고 매칭 부분 하이라이트
   function filterSidebar(query) {
-    var q = query.toLowerCase().replace(/\s+/g, '');
-    var visibleTotal = 0;
+    var q = query.toLowerCase().replace(/\s+/g, '');  // 소문자 변환 + 공백 제거
+    var visibleTotal = 0;  // 표시되는 파일 수 카운터
 
     document.querySelectorAll('#sidebar-nav .nav-item').forEach(function(item) {
       var fname   = (item.getAttribute('data-filename') || '').toLowerCase();
-      var visible = !q || fname.indexOf(q) !== -1;
+      var visible = !q || fname.indexOf(q) !== -1;  // 검색어 포함 여부 확인
 
+      // 파일명 요소에 검색어 하이라이트 적용
       var nameEl = item.querySelector('.nav-filename');
       if (nameEl) {
-        var orig = item.getAttribute('data-filename') || '';
+        var orig = item.getAttribute('data-filename') || '';  // 원본 파일명
         if (q && visible) {
+          // 매칭 위치를 찾아 <mark> 태그로 하이라이트
           var idx = fname.indexOf(q);
           if (idx !== -1) {
             nameEl.innerHTML =
@@ -178,17 +214,21 @@ function filterFiles(btn, filter) {
             nameEl.textContent = orig;
           }
         } else {
+          // 검색어가 없거나 매칭 안 되면 원본 텍스트 복원
           nameEl.textContent = orig;
         }
       }
 
+      // 파일 항목 표시/숨김 처리
       item.style.display = visible ? '' : 'none';
       if (visible) visibleTotal++;
     });
 
+    // 섹션 라벨 표시/숨김: 해당 섹션에 보이는 파일이 있을 때만 표시
     document.querySelectorAll('#sidebar-nav .nav-section-label').forEach(function(lbl) {
       var next = lbl.nextElementSibling;
       var hasVisible = false;
+      // 다음 섹션 라벨이 나올 때까지 순회하며 보이는 항목이 있는지 확인
       while (next && !next.classList.contains('nav-section-label')) {
         if (next.classList.contains('nav-item') && next.style.display !== 'none') {
           hasVisible = true;
@@ -199,18 +239,27 @@ function filterFiles(btn, filter) {
       lbl.style.display = hasVisible ? '' : 'none';
     });
 
+    // 검색 결과 없음 메시지 표시 여부
     noResult.style.display = (q && visibleTotal === 0) ? '' : 'none';
+    // 검색 결과 개수 표시
     if (q) { countEl.textContent = visibleTotal + '개 파일'; countEl.style.display = ''; }
     else   { countEl.style.display = 'none'; }
+    // 지우기 버튼 표시 여부 (검색어가 있을 때만)
     clearBtn.style.display = q ? '' : 'none';
   }
 
+  // 입력 이벤트 리스너: 실시간 검색
   input.addEventListener('input', function() { filterSidebar(this.value); });
+  // 한국어 등 조합형 입력 완료 시에도 필터링 (IME 지원)
   input.addEventListener('compositionend', function() { filterSidebar(this.value); });
+  // 지우기 버튼 클릭: 검색어 초기화
   clearBtn.addEventListener('click', function() { input.value=''; filterSidebar(''); input.focus(); });
 
+  // 키보드 단축키
   document.addEventListener('keydown', function(e) {
+    // Ctrl/Cmd + F: 검색 입력 필드로 포커스 이동
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); input.focus(); input.select(); }
+    // Esc: 검색어 초기화 및 포커스 해제
     if (e.key === 'Escape' && document.activeElement === input) { input.value=''; filterSidebar(''); input.blur(); }
   });
 }());

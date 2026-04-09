@@ -1,14 +1,22 @@
 {% extends "base.html" %}
+
+<!-- 페이지 제목: "베이스라인명 — 홈" 또는 "Diff Viewer — 홈" -->
 {% block title %}{{ current_baseline or 'Diff Viewer' }} — 홈{% endblock %}
 
 {% block content %}
+<!-- 홈 페이지 래퍼: 최대 너비 800px로 중앙 정렬 -->
 <div class="home-wrap">
+
+  <!-- 히어로 영역: 파일 선택 안내 메시지 -->
   <div class="home-hero">
     <h1 class="home-title">파일을 선택하세요</h1>
     <p class="home-desc">왼쪽 사이드바에서 비교할 파일을 클릭하세요.</p>
   </div>
 
+  <!-- 파일이 있을 때: 통계 카드 + 파일 목록 표시 -->
   {% if files and files.files %}
+
+  <!-- 통계 카드: 전체 파일 수와 변경된 파일 수를 시각적으로 표시 -->
   <div class="home-stats">
     <div class="stat-card">
       <div class="stat-num">{{ files.files|length }}</div>
@@ -20,29 +28,39 @@
     </div>
   </div>
 
+  <!-- 베이스라인 파일 목록 카드 -->
   <div class="exam-card">
+    <!-- 카드 헤더: 베이스라인 이름 + 변경 파일 수 요약 -->
     <div class="exam-card-header">
       <span class="exam-card-id">{{ current_baseline }}</span>
       <span class="exam-card-meta">{{ files.changed_count }}/{{ files.files|length }}개 변경</span>
     </div>
+    <!-- 파일 리스트: 각 파일을 클릭하면 diff 페이지로 이동 -->
     <div class="exam-card-files">
       {% for f in files.files %}
       <a href="{{ url_for('diff_view', baseline=current_baseline, filename=f.name) }}" class="file-card">
+        <!-- 파일 상태 아이콘: 변경됨(≠) 또는 동일(=) -->
         {% if f.changed %}
         <span class="file-card-icon file-card-changed">&#8800;</span>
         {% else %}
         <span class="file-card-icon file-card-same">&#61;</span>
         {% endif %}
+        <!-- 파일명 -->
         <span class="file-card-name">{{ f.name }}</span>
+        <!-- 상태 배지: "변경" 또는 "동일" -->
         {% if f.changed %}<span class="file-card-badge-changed">변경</span>{% else %}<span class="file-card-badge-same">동일</span>{% endif %}
+        <!-- 이동 화살표 아이콘 -->
         <span class="file-card-arrow">&#8594;</span>
       </a>
       {% endfor %}
     </div>
   </div>
+
   {% else %}
+  <!-- 파일이 없을 때: 폴더 구조 안내 메시지 표시 -->
   <div class="home-empty">
     <p><code>data/</code> 폴더 안에 베이스라인 폴더를 만들고,<br>그 안에 <code>00.WordBase/</code> 와 <code>01.CodeBase/</code> 폴더를 넣어주세요.</p>
+    <!-- 예시 폴더 구조를 트리 형태로 표시 -->
     <pre class="home-tree">data/
 └── baseline_v1/
     ├── 00.WordBase/
