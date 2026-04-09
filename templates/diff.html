@@ -1,0 +1,46 @@
+{% extends "base.html" %}
+{% block title %}{{ filename }} — {{ exam_id }}{% endblock %}
+
+{% block content %}
+<div class="diff-wrap">
+
+  <div class="diff-header">
+    <div class="diff-header-left">
+      <a href="{{ url_for('index') }}" class="back-btn">&#8592; 목록</a>
+      <span class="diff-exam-badge">{{ exam_id }}</span>
+      <h2 class="diff-filename">{{ filename }}</h2>
+    </div>
+    <div class="diff-header-right">
+      <span class="badge badge-total">전체 {{ total }}줄</span>
+      {% if changed == 0 %}<span class="badge badge-same">변경 없음</span>{% else %}<span class="badge badge-changed">{{ changed }}줄 변경</span>{% endif %}
+    </div>
+  </div>
+
+  <!-- 범례 -->
+  <div class="diff-legend">
+    <span class="legend-item"><span class="legend-dot dot-del"></span>삭제</span>
+    <span class="legend-item"><span class="legend-dot dot-add"></span>추가</span>
+    <span class="legend-item"><span class="legend-dot dot-replace"></span>변경</span>
+    <span class="legend-sep"></span>
+    <span class="legend-item"><span class="legend-word wd-only">단어</span>한쪽에만 존재</span>
+    <span class="legend-item"><span class="legend-word wd-diff">단어</span>철자/대소문자 차이</span>
+  </div>
+
+  <div class="diff-col-header">
+    <div class="diff-col-gutter"></div>
+    <div class="diff-col-pane"><span class="col-label col-label-a">{{ word_dir_name }} / {{ filename }}</span></div>
+    <div class="diff-col-gutter"></div>
+    <div class="diff-col-pane"><span class="col-label col-label-b">{{ code_dir_name }} / {{ filename }}</span></div>
+  </div>
+
+  <div class="diff-table-wrap">
+    <table class="diff-table">
+      <tbody>
+      {% for row in rows %}<tr class="diff-row diff-{{ row.type }}"><td class="gutter gutter-a">{% if row.lineno_a is not none %}{{ row.lineno_a }}{% endif %}</td><td class="code code-a"><span class="line-mark {% if row.type == "delete" or row.type == "replace" %}line-mark-del{% endif %}">{% if row.type == "delete" or row.type == "replace" %}&#8722;{% endif %}</span><span class="line-text">{{ row.html_a|safe }}</span></td><td class="gutter gutter-b">{% if row.lineno_b is not none %}{{ row.lineno_b }}{% endif %}</td><td class="code code-b"><span class="line-mark {% if row.type == "insert" or row.type == "replace" %}line-mark-add{% endif %}">{% if row.type == "insert" or row.type == "replace" %}+{% endif %}</span><span class="line-text">{{ row.html_b|safe }}</span></td></tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+</div>
+{% endblock %}

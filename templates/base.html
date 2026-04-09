@@ -1,0 +1,221 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{% block title %}Diff Viewer{% endblock %}</title>
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
+</head>
+<body>
+
+<div class="layout">
+
+  <aside class="sidebar">
+
+    <div class="sidebar-header">
+      <a href="{{ url_for('index') }}" class="sidebar-logo-link">
+        <span class="sidebar-logo">&#8644;</span>
+        <span class="sidebar-title">Diff Viewer</span>
+      </a>
+    </div>
+
+    <!-- 현재 선택된 시험 표시 -->
+    {% set current_exam = request.view_args.get('exam_id') if request.view_args else None %}
+    {% if current_exam %}
+    <div class="sidebar-context">
+      <span class="context-label">현재 선택</span>
+      <span class="context-exam">{{ current_exam }}</span>
+    </div>
+    {% endif %}
+
+    <!-- 검색창 -->
+    <div class="sidebar-search">
+      <div class="search-input-wrap">
+        <span class="search-icon">
+          <svg width="13" height="13" viewBox="0 0 16 16" fill="none">
+            <circle cx="6.5" cy="6.5" r="5" stroke="currentColor" stroke-width="1.5"/>
+            <line x1="10.5" y1="10.5" x2="14.5" y2="14.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round"/>
+          </svg>
+        </span>
+        <input type="text" id="sidebar-search" class="search-input"
+               placeholder="파일 / 시험 검색..." autocomplete="off" spellcheck="false">
+        <button id="search-clear" class="search-clear" title="지우기" style="display:none;">&#10005;</button>
+      </div>
+      <div id="search-count" class="search-count" style="display:none;"></div>
+    </div>
+
+    <!-- 네비게이션 -->
+    <nav class="sidebar-nav" id="sidebar-nav">
+
+      {% for exam in exams %}
+      {% set is_active_exam = (current_exam == exam.exam_id) %}
+      <div class="exam-group {% if is_active_exam %}exam-group-active{% endif %}"
+           data-exam="{{ exam.exam_id }}">
+
+        <button class="exam-header {% if is_active_exam %}exam-header-active{% endif %}"
+                onclick="toggleExam(this)">
+          <span class="exam-chevron">&#9660;</span>
+          <span class="exam-id">{{ exam.exam_id }}</span>
+          {% if is_active_exam %}<span class="exam-active-dot"></span>{% endif %}
+          <span class="exam-count">{{ exam.common|length }}</span>
+        </button>
+
+        <div class="exam-files" {% if not is_active_exam %}style="display:none;"{% endif %}>
+          {% if exam.common %}
+          <div class="nav-section-label">공통<span class="nav-section-count">{{ exam.common|length }}</span></div>
+          {% for f in exam.common %}
+          {% set is_active_file = (is_active_exam and request.view_args.get('filename') == f) %}
+          <a href="{{ url_for('diff_view', exam_id=exam.exam_id, filename=f) }}"
+             class="nav-item {% if is_active_file %}active{% endif %}"
+             data-filename="{{ f }}" data-exam="{{ exam.exam_id }}">
+            <span class="nav-icon nav-icon-both">&#8800;</span>
+            <span class="nav-filename">{{ f }}</span>
+          </a>
+          {% endfor %}
+          {% endif %}
+
+          {% if exam.only_word %}
+          <div class="nav-section-label">WordBase 전용<span class="nav-section-count">{{ exam.only_word|length }}</span></div>
+          {% for f in exam.only_word %}
+          <div class="nav-item nav-item-disabled" data-filename="{{ f }}" data-exam="{{ exam.exam_id }}">
+            <span class="nav-icon nav-icon-only-a">A</span>
+            <span class="nav-filename">{{ f }}</span>
+          </div>
+          {% endfor %}
+          {% endif %}
+
+          {% if exam.only_code %}
+          <div class="nav-section-label">CodeBase 전용<span class="nav-section-count">{{ exam.only_code|length }}</span></div>
+          {% for f in exam.only_code %}
+          <div class="nav-item nav-item-disabled" data-filename="{{ f }}" data-exam="{{ exam.exam_id }}">
+            <span class="nav-icon nav-icon-only-b">B</span>
+            <span class="nav-filename">{{ f }}</span>
+          </div>
+          {% endfor %}
+          {% endif %}
+        </div>
+
+      </div>
+      {% endfor %}
+
+      {% if not exams %}
+      <div class="nav-empty">data/ 폴더가 비어있습니다</div>
+      {% endif %}
+
+      <div class="nav-no-results" id="nav-no-results" style="display:none;">검색 결과가 없습니다</div>
+    </nav>
+
+    <div class="sidebar-footer">
+      <span class="folder-tag a">00.WordBase</span>
+      <span class="folder-arrow">&#8594;</span>
+      <span class="folder-tag b">01.CodeBase</span>
+    </div>
+
+  </aside>
+
+  <main class="main">
+    {% block content %}{% endblock %}
+  </main>
+
+</div>
+
+<script>
+/* ── 시험 그룹 접기/펼치기 ── */
+function toggleExam(btn) {
+  var group   = btn.closest('.exam-group');
+  var files   = group.querySelector('.exam-files');
+  var chevron = btn.querySelector('.exam-chevron');
+  var collapsed = files.style.display === 'none';
+  files.style.display   = collapsed ? '' : 'none';
+  chevron.style.transform = collapsed ? '' : 'rotate(-90deg)';
+}
+
+/* ── 비활성 그룹의 chevron 초기 상태 ── */
+document.querySelectorAll('.exam-group:not(.exam-group-active) .exam-chevron').forEach(function(c) {
+  c.style.transform = 'rotate(-90deg)';
+});
+
+/* ── 사이드바 검색 ── */
+(function () {
+  var input    = document.getElementById('sidebar-search');
+  var clearBtn = document.getElementById('search-clear');
+  var countEl  = document.getElementById('search-count');
+  var noResult = document.getElementById('nav-no-results');
+
+  function escHtml(s) {
+    return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  }
+
+  function filterSidebar(query) {
+    var q = query.toLowerCase().replace(/\s+/g, '');
+    var visibleTotal = 0;
+
+    document.querySelectorAll('#sidebar-nav .exam-group').forEach(function(group) {
+      var examId    = (group.getAttribute('data-exam') || '').toLowerCase();
+      var examMatch = !q || examId.indexOf(q) !== -1;
+      var items     = Array.from(group.querySelectorAll('.nav-item'));
+      var visibleItems = 0;
+
+      items.forEach(function(item) {
+        var fname   = (item.getAttribute('data-filename') || '').toLowerCase();
+        var visible = !q || examMatch || fname.indexOf(q) !== -1;
+
+        var nameEl = item.querySelector('.nav-filename');
+        if (nameEl) {
+          var orig = item.getAttribute('data-filename') || '';
+          if (q && visible) {
+            var searchIn = orig.toLowerCase();
+            var idx = searchIn.indexOf(q);
+            if (idx !== -1) {
+              nameEl.innerHTML =
+                escHtml(orig.slice(0, idx)) +
+                '<mark class="search-hl">' + escHtml(orig.slice(idx, idx + q.length)) + '</mark>' +
+                escHtml(orig.slice(idx + q.length));
+            } else {
+              nameEl.textContent = orig;
+            }
+          } else {
+            nameEl.textContent = orig;
+          }
+        }
+
+        item.style.display = visible ? '' : 'none';
+        if (visible) visibleItems++;
+      });
+
+      var groupVisible = examMatch || visibleItems > 0;
+      group.style.display = groupVisible ? '' : 'none';
+
+      if (q && groupVisible) {
+        var files   = group.querySelector('.exam-files');
+        var chevron = group.querySelector('.exam-chevron');
+        if (files)   files.style.display = '';
+        if (chevron) chevron.style.transform = '';
+      }
+
+      group.querySelectorAll('.nav-section-label').forEach(function(lbl) {
+        lbl.style.display = groupVisible ? '' : 'none';
+      });
+
+      if (groupVisible) visibleTotal += visibleItems;
+    });
+
+    noResult.style.display = (q && visibleTotal === 0) ? '' : 'none';
+    if (q) { countEl.textContent = visibleTotal + '개 파일'; countEl.style.display = ''; }
+    else   { countEl.style.display = 'none'; }
+    clearBtn.style.display = q ? '' : 'none';
+  }
+
+  input.addEventListener('input', function() { filterSidebar(this.value); });
+  input.addEventListener('compositionend', function() { filterSidebar(this.value); });
+  clearBtn.addEventListener('click', function() { input.value=''; filterSidebar(''); input.focus(); });
+
+  document.addEventListener('keydown', function(e) {
+    if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); input.focus(); input.select(); }
+    if (e.key === 'Escape' && document.activeElement === input) { input.value=''; filterSidebar(''); input.blur(); }
+  });
+}());
+</script>
+
+</body>
+</html>

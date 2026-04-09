@@ -1,0 +1,56 @@
+{% extends "base.html" %}
+{% block title %}Diff Viewer — 홈{% endblock %}
+
+{% block content %}
+<div class="home-wrap">
+  <div class="home-hero">
+    <h1 class="home-title">파일을 선택하세요</h1>
+    <p class="home-desc">왼쪽 사이드바에서 시험 ID를 펼치고 비교할 파일을 클릭하세요.</p>
+  </div>
+
+  <div class="home-stats">
+    <div class="stat-card">
+      <div class="stat-num">{{ exams|length }}</div>
+      <div class="stat-label">시험 ID</div>
+    </div>
+    <div class="stat-card">
+      <div class="stat-num">{{ exams|sum(attribute='common')|list|length }}</div>
+      <div class="stat-label">비교 가능 파일</div>
+    </div>
+  </div>
+
+  {% if exams %}
+    {% for exam in exams %}
+    <div class="exam-card">
+      <div class="exam-card-header">
+        <span class="exam-card-id">{{ exam.exam_id }}</span>
+        <span class="exam-card-meta">공통 {{ exam.common|length }}개 · WordBase 전용 {{ exam.only_word|length }}개 · CodeBase 전용 {{ exam.only_code|length }}개</span>
+      </div>
+      {% if exam.common %}
+      <div class="exam-card-files">
+        {% for f in exam.common %}
+        <a href="{{ url_for('diff_view', exam_id=exam.exam_id, filename=f) }}" class="file-card">
+          <span class="file-card-icon">&#128196;</span>
+          <span class="file-card-name">{{ f }}</span>
+          <span class="file-card-arrow">&#8594;</span>
+        </a>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="exam-card-empty">비교 가능한 공통 파일이 없습니다.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  {% else %}
+  <div class="home-empty">
+    <p><code>data/</code> 폴더 안에 시험 ID 폴더를 만들고,<br>그 안에 <code>00.WordBase/</code> 와 <code>01.CodeBase/</code> 폴더를 넣어주세요.</p>
+    <pre class="home-tree">data/
+└── baseline_v1/
+    ├── 00.WordBase/
+    │   └── sample.txt
+    └── 01.CodeBase/
+        └── sample.txt</pre>
+  </div>
+  {% endif %}
+</div>
+{% endblock %}
