@@ -88,6 +88,7 @@ body {
   top: 0;
   height: 100vh;              /* 뷰포트 전체 높이 */
   overflow-y: auto;           /* 내용이 넘칠 경우 세로 스크롤 */
+  scrollbar-width: none;      /* Firefox: 스크롤바 숨김 */
 }
 
 /* 사이드바 헤더: 로고 + 타이틀 영역 */
@@ -213,7 +214,9 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 
 /* ── 네비게이션 (파일 목록) ── */
 /* 파일 목록 영역: 남은 공간을 채우며 스크롤 가능 */
-.sidebar-nav { flex: 1; padding: 4px 0 12px; overflow-y: auto; }
+.sidebar-nav { flex: 1; padding: 4px 0 12px; overflow-y: auto; scrollbar-width: none; }
+.sidebar-nav::-webkit-scrollbar { display: none; }
+.sidebar::-webkit-scrollbar { display: none; }
 
 /* 시험 그룹 컨테이너 (현재 미사용, 확장 가능) */
 .exam-group { border-bottom: 1px solid var(--border-sidebar); }
