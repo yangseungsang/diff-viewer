@@ -597,10 +597,10 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
   background: var(--diff-gutter-bg); border-right: 1px solid var(--border);
 }
 
-/* [M3] 코드 셀: 긴 줄이 잘리지 않도록 가로 스크롤 허용 */
+/* [M3] 코드 셀: 긴 줄은 줄바꿈 처리 */
 .code {
-  padding: 3px 14px !important; white-space: pre;         /* 공백/줄바꿈 보존 */
-  overflow-x: auto; border-right: 1px solid var(--border); line-height: 1.7;
+  padding: 3px 14px !important; white-space: pre-wrap;    /* 공백/줄바꿈 보존 + 자동 줄바꿈 */
+  word-break: break-all; border-right: 1px solid var(--border); line-height: 1.7;
 }
 
 /* 줄 앞의 기호 (- 또는 +) */
@@ -635,21 +635,15 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 .diff-row:hover .code-b { filter: brightness(0.97); }
 
 /* ── 단어 단위 diff 하이라이트 스타일 ── */
-/* 한쪽에만 존재하는 단어: 빨간 배경 */
+/* 한쪽에만 존재하는 단어: 배경 없이 글자색(빨간)만 변경 + 볼드 */
 span.wd-only {
-  background: var(--wd-only-bg);
   color: var(--wd-only-text);
-  border-radius: 3px;
-  padding: 0 2px;
-  font-weight: 600;
+  font-weight: 700;
 }
-/* 대소문자만 다른 단어: 파란 배경 */
+/* 대소문자만 다른 단어: 배경 없이 글자색(파란)만 변경 + 볼드 */
 span.wd-diff {
-  background: var(--wd-diff-bg);
   color: var(--wd-diff-text);
-  border-radius: 3px;
-  padding: 0 2px;
-  font-weight: 600;
+  font-weight: 700;
 }
 /* 삭제된 공백: 빨간 배경 + ·/→ 기호 */
 span.wd-ws-del {
