@@ -589,7 +589,7 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 }
 
 /* 테이블 셀 기본 스타일 */
-.diff-row > td { padding: 0; vertical-align: middle; border-bottom: 1px solid #f3f4f6; line-height: 1; }
+.diff-row > td { padding: 0; vertical-align: middle; border-bottom: 1px solid #e5e7eb; line-height: 1; }
 
 /* 거터(줄 번호) 셀: 고정 너비 52px, 오른쪽 정렬 */
 .gutter {
@@ -602,7 +602,7 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 
 /* [M3] 코드 셀: 긴 줄은 줄바꿈 처리 */
 .code {
-  padding: 5px 14px !important; white-space: pre-wrap;    /* 공백/줄바꿈 보존 + 자동 줄바꿈 */
+  padding: 8px 14px !important; white-space: pre-wrap;    /* 공백/줄바꿈 보존 + 자동 줄바꿈 */
   word-break: break-all; border-right: 1px solid var(--border); line-height: 1.7;
 }
 
