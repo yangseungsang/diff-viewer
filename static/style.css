@@ -599,8 +599,8 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 
 /* [M3] 코드 셀: 긴 줄은 줄바꿈 처리 */
 .code {
-  padding: 6px 14px !important; white-space: pre-wrap;    /* 공백/줄바꿈 보존 + 자동 줄바꿈 */
-  word-break: break-all; border-right: 1px solid var(--border); line-height: 1.9;
+  padding: 5px 14px !important; white-space: pre-wrap;    /* 공백/줄바꿈 보존 + 자동 줄바꿈 */
+  word-break: break-all; border-right: 1px solid var(--border); line-height: 1.7;
 }
 
 /* 줄 앞의 기호 (- 또는 +) */
