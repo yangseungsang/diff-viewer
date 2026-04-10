@@ -52,9 +52,9 @@
 
   /* 단어 단위 diff 하이라이트 색상 */
   --wd-only-bg:    #fecaca;     /* 한쪽에만 존재하는 단어 배경 (빨간) */
-  --wd-only-text:  #991b1b;     /* 한쪽에만 존재하는 단어 글자색 */
+  --wd-only-text:  #b91c1c;     /* 한쪽에만 존재하는 단어 글자색 (진한 빨간) */
   --wd-diff-bg:    #bfdbfe;     /* 대소문자 차이 배경 (파란) */
-  --wd-diff-text:  #1e3a8a;     /* 대소문자 차이 글자색 */
+  --wd-diff-text:  #1d4ed8;     /* 대소문자 차이 글자색 (진한 파란) */
 }
 
 /* 전역 body 스타일: UI 폰트, 배경색, 기본 텍스트 설정 */
@@ -599,8 +599,8 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 
 /* [M3] 코드 셀: 긴 줄은 줄바꿈 처리 */
 .code {
-  padding: 3px 14px !important; white-space: pre-wrap;    /* 공백/줄바꿈 보존 + 자동 줄바꿈 */
-  word-break: break-all; border-right: 1px solid var(--border); line-height: 1.7;
+  padding: 6px 14px !important; white-space: pre-wrap;    /* 공백/줄바꿈 보존 + 자동 줄바꿈 */
+  word-break: break-all; border-right: 1px solid var(--border); line-height: 1.9;
 }
 
 /* 줄 앞의 기호 (- 또는 +) */
