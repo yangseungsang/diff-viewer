@@ -125,11 +125,19 @@
 
 <script>
 /* ── 사이드바 리사이즈 기능 ──
-   마우스 드래그로 사이드바 너비를 180px~500px 범위 내에서 조절 가능 */
+   마우스 드래그로 사이드바 너비를 180px~500px 범위 내에서 조절 가능
+   너비는 localStorage에 저장되어 리로드 후에도 유지됨 */
 (function() {
   var resizer = document.getElementById('sidebar-resizer');  // 리사이저 핸들 요소
   var sidebar = document.querySelector('.sidebar');           // 사이드바 요소
   var startX, startW;  // 드래그 시작 시의 마우스 X좌표와 사이드바 너비
+
+  // 저장된 너비 복원 (이슈 #6)
+  var savedWidth = parseInt(localStorage.getItem('sidebarWidth'));
+  if (savedWidth >= 180 && savedWidth <= 500) {
+    sidebar.style.width = savedWidth + 'px';
+    sidebar.style.minWidth = savedWidth + 'px';
+  }
 
   // 마우스 누름 이벤트: 드래그 시작
   resizer.addEventListener('mousedown', function(e) {
@@ -156,11 +164,13 @@
     document.body.style.userSelect = '';          // 텍스트 선택 다시 허용
     document.removeEventListener('mousemove', onMouseMove);  // 리스너 해제
     document.removeEventListener('mouseup', onMouseUp);
+    localStorage.setItem('sidebarWidth', sidebar.offsetWidth);  // 너비 저장 (이슈 #6)
   }
 }());
 
 /* ── 파일 필터 기능 (전체/변경됨/동일) ──
-   사이드바의 파일 목록을 변경 여부에 따라 필터링 */
+   사이드바의 파일 목록을 변경 여부에 따라 필터링
+   선택한 필터는 sessionStorage에 저장되어 항목 선택 후에도 유지됨 (이슈 #4) */
 var currentFilter = 'all';  // 현재 활성 필터 상태
 function filterFiles(btn, filter) {
   currentFilter = filter;
@@ -174,7 +184,17 @@ function filterFiles(btn, filter) {
     else if (filter === 'changed') item.style.display = changed ? '' : 'none';  // 변경됨만 표시
     else item.style.display = changed ? 'none' : '';                      // 동일한 것만 표시
   });
+  sessionStorage.setItem('sidebarFilter', filter);  // 필터 상태 저장 (이슈 #4)
 }
+
+// 페이지 로드 시 저장된 필터 복원 (이슈 #4)
+(function() {
+  var savedFilter = sessionStorage.getItem('sidebarFilter');
+  if (savedFilter && savedFilter !== 'all') {
+    var btn = document.querySelector('.nav-filter-btn[data-filter="' + savedFilter + '"]');
+    if (btn) filterFiles(btn, savedFilter);
+  }
+}());
 
 /* ── 사이드바 검색 기능 ──
    파일명을 기준으로 실시간 필터링하며 매칭 부분을 하이라이트 표시 */
@@ -191,7 +211,7 @@ function filterFiles(btn, filter) {
 
   // 검색어에 따라 파일 목록을 필터링하고 매칭 부분 하이라이트
   function filterSidebar(query) {
-    var q = query.toLowerCase().replace(/\s+/g, '');  // 소문자 변환 + 공백 제거
+    var q = query.toLowerCase().trim();  // 소문자 변환 + 앞뒤 공백만 제거 (이슈 #3)
     var visibleTotal = 0;  // 표시되는 파일 수 카운터
 
     document.querySelectorAll('#sidebar-nav .nav-item').forEach(function(item) {
@@ -261,6 +281,27 @@ function filterFiles(btn, filter) {
     if ((e.ctrlKey || e.metaKey) && e.key === 'f') { e.preventDefault(); input.focus(); input.select(); }
     // Esc: 검색어 초기화 및 포커스 해제
     if (e.key === 'Escape' && document.activeElement === input) { input.value=''; filterSidebar(''); input.blur(); }
+  });
+}());
+
+/* ── 사이드바 스크롤 위치 유지 (이슈 #5) ──
+   파일 항목 클릭 시 스크롤 위치를 저장하고, 페이지 로드 시 복원 */
+(function() {
+  var nav = document.getElementById('sidebar-nav');
+  if (!nav) return;
+
+  // 저장된 스크롤 위치 복원
+  var savedScroll = sessionStorage.getItem('sidebarScroll');
+  if (savedScroll !== null) {
+    nav.scrollTop = parseInt(savedScroll);
+  }
+
+  // 파일 항목 클릭 시 현재 스크롤 위치 저장
+  nav.addEventListener('click', function(e) {
+    var item = e.target.closest('.nav-item');
+    if (item) {
+      sessionStorage.setItem('sidebarScroll', nav.scrollTop);
+    }
   });
 }());
 </script>
