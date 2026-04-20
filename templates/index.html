@@ -13,6 +13,13 @@
     <p class="home-desc">왼쪽 사이드바에서 비교할 파일을 클릭하세요.</p>
   </div>
 
+  <!-- 베이스라인 info.md가 있으면 메타 정보 카드 표시 -->
+  {% if baseline_info %}
+  <div class="info-card">
+    <div class="info-card-inner">{{ baseline_info|safe }}</div>
+  </div>
+  {% endif %}
+
   <!-- 파일이 있을 때: 통계 카드 + 파일 목록 표시 -->
   {% if files and files.files %}
 

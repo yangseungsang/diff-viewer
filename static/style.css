@@ -419,6 +419,22 @@ mark.search-hl { background: rgba(250,204,21,0.35); color: #fde68a; border-radiu
 /* 안내 문구 */
 .home-desc  { font-size: 14px; color: var(--text-secondary); line-height: 1.8; margin-bottom: 36px; }
 
+/* ── 베이스라인 info.md 정보 카드 ── */
+.info-card {
+  background: var(--bg-main); border: 1px solid var(--border);
+  border-radius: 10px; margin-bottom: 28px; overflow: hidden;
+}
+.info-card-inner {
+  padding: 20px 24px; font-size: 13px; color: var(--text-primary); line-height: 1.8;
+}
+.info-card-inner .info-h  { font-size: 14px; font-weight: 700; margin: 12px 0 4px; color: var(--text-primary); }
+.info-card-inner .info-h:first-child { margin-top: 0; }
+.info-card-inner .info-hr { border: none; border-top: 1px solid var(--border); margin: 12px 0; }
+.info-card-inner .info-p  { margin: 4px 0; }
+.info-card-inner .info-list { margin: 4px 0 4px 16px; padding: 0; }
+.info-card-inner .info-list li { margin: 2px 0; }
+.info-card-inner code { background: #f3f4f6; padding: 1px 5px; border-radius: 4px; font-size: 12px; }
+
 /* 통계 카드 그리드: 2열 레이아웃 */
 .home-stats {
   display: grid; grid-template-columns: repeat(2, 1fr);

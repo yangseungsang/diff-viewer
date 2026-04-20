@@ -14,6 +14,7 @@ Diff Viewer - Flask 기반 파일 비교 웹 애플리케이션
 
 import os      # 파일 시스템 경로 처리용
 import re      # 정규표현식 (토큰 분리, 공백 제거 등)
+import html    # HTML 이스케이프용
 import difflib # 텍스트 비교 및 유사도 계산 라이브러리
 from flask import Flask, render_template, abort, redirect, url_for
 
@@ -148,6 +149,66 @@ def get_file_list(baseline):
         "files":    files,
         "changed_count": changed_count,
     }
+
+
+# ─────────────────────────────────────────
+# 베이스라인 정보: info.md 읽기 및 마크다운 변환
+# ─────────────────────────────────────────
+
+def _inline_md(text):
+    """인라인 마크다운(굵게, 기울임, 코드)을 HTML로 변환."""
+    text = html.escape(text)
+    text = re.sub(r'\*\*(.+?)\*\*', r'<strong>\1</strong>', text)
+    text = re.sub(r'\*(.+?)\*', r'<em>\1</em>', text)
+    text = re.sub(r'`(.+?)`', r'<code>\1</code>', text)
+    return text
+
+
+def _simple_markdown(text):
+    """간단한 마크다운을 HTML로 변환 (제목, 목록, 단락, 구분선, 인라인 스타일)."""
+    lines = text.split('\n')
+    result = []
+    in_list = False
+
+    for line in lines:
+        line = line.rstrip()
+        if line.startswith('### '):
+            if in_list: result.append('</ul>'); in_list = False
+            result.append(f'<h5 class="info-h">{html.escape(line[4:])}</h5>')
+        elif line.startswith('## '):
+            if in_list: result.append('</ul>'); in_list = False
+            result.append(f'<h4 class="info-h">{html.escape(line[3:])}</h4>')
+        elif line.startswith('# '):
+            if in_list: result.append('</ul>'); in_list = False
+            result.append(f'<h3 class="info-h">{html.escape(line[2:])}</h3>')
+        elif line.strip() in ('---', '***', '___'):
+            if in_list: result.append('</ul>'); in_list = False
+            result.append('<hr class="info-hr">')
+        elif line.startswith('- ') or line.startswith('* '):
+            if not in_list: result.append('<ul class="info-list">'); in_list = True
+            result.append(f'<li>{_inline_md(line[2:])}</li>')
+        elif line.strip() == '':
+            if in_list: result.append('</ul>'); in_list = False
+        else:
+            if in_list: result.append('</ul>'); in_list = False
+            result.append(f'<p class="info-p">{_inline_md(line)}</p>')
+
+    if in_list:
+        result.append('</ul>')
+
+    return '\n'.join(result)
+
+
+def get_baseline_info(baseline):
+    """베이스라인 폴더의 info.md를 읽어 HTML로 반환. 파일이 없으면 None."""
+    info_path = os.path.join(DATA_DIR, baseline, 'info.md')
+    if not os.path.isfile(info_path):
+        return None
+    try:
+        with open(info_path, 'r', encoding='utf-8', errors='replace') as f:
+            return _simple_markdown(f.read())
+    except OSError:
+        return None
 
 
 # ─────────────────────────────────────────
@@ -714,9 +775,11 @@ def baseline_view(baseline):
     # 유효하지 않은 베이스라인이면 404 에러
     if baseline not in baselines:
         abort(404)
-    # 파일 목록 조회 후 템플릿 렌더링
+    # 파일 목록 및 info.md 조회 후 템플릿 렌더링
     files = get_file_list(baseline)
-    return render_template("index.html", baselines=baselines, files=files, current_baseline=baseline)
+    baseline_info = get_baseline_info(baseline)
+    return render_template("index.html", baselines=baselines, files=files,
+                           current_baseline=baseline, baseline_info=baseline_info)
 
 
 @app.route("/<baseline>/diff/<filename>")
