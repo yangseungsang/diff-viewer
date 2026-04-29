@@ -17,7 +17,7 @@ import re      # 정규표현식 (토큰 분리, 공백 제거 등)
 import html    # HTML 이스케이프용
 import difflib # 텍스트 비교 및 유사도 계산 라이브러리
 import xml.etree.ElementTree as ET
-from flask import Flask, render_template, abort, redirect, url_for
+from flask import Flask, render_template, abort, redirect, url_for, request, jsonify
 
 # Flask 애플리케이션 인스턴스 생성
 app = Flask(__name__)
@@ -30,6 +30,9 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 # [H3] 두 줄이 같은 줄로 짝지어질 최소 유사도 임계값
 # 0.55로 설정 — 기존 0.3은 너무 낮아 무관한 줄끼리 잘못 매칭되는 문제가 있었음
 SIMILARITY_THRESHOLD = 0.55
+
+# 편집 결과를 전송할 외부 서버 URL (추후 설정)
+SUBMIT_SERVER_URL = ""
 
 
 # ─────────────────────────────────────────
@@ -854,10 +857,10 @@ def diff_view(baseline, filename):
 
     Args:
         baseline (str): URL에서 전달된 베이스라인 폴더명
-        filename (str): 비교할 파일명 (.txt만 허용)
+        filename (str): 비교할 파일명 (.xml만 허용)
     """
-    # .txt 확장자가 아닌 파일은 400 Bad Request
-    if not filename.endswith(".txt"):
+    # .xml 확장자가 아닌 파일은 400 Bad Request
+    if not filename.endswith(".xml"):
         abort(400)
 
     baselines = get_baselines()
@@ -879,6 +882,7 @@ def diff_view(baseline, filename):
     # 파일 목록 및 diff 데이터 생성
     files = get_file_list(baseline)
     rows, total, changed = build_diff(word_dir, code_dir, filename)
+    has_editable = any(r.get("meta_b") for r in rows)
     # 디렉토리 이름만 추출 (헤더 표시용)
     word_dir_name = os.path.basename(word_dir)
     code_dir_name = os.path.basename(code_dir)
@@ -894,7 +898,46 @@ def diff_view(baseline, filename):
         total=total,                   # 전체 행 수
         changed=changed,               # 변경된 행 수
         files=files,                   # 사이드바용 파일 목록
+        has_editable=has_editable,
     )
+
+
+@app.route("/<baseline>/diff/<filename>/submit", methods=["POST"])
+def submit_edits(baseline, filename):
+    """편집/스킵 처리된 diff 라인 데이터를 외부 서버로 전송.
+
+    Request body (JSON):
+        [{"package_name": str, "sub_title": str,
+          "item": {"id": str, "value": str, "line_number": int, "edit_type": str},
+          "user_action": "edited"|"skipped"}, ...]
+
+    Returns:
+        JSON: {"status": "ok", "count": int}
+    """
+    if baseline not in get_baselines():
+        abort(404)
+    if not filename.endswith(".xml"):
+        abort(400)
+
+    data = request.get_json()
+    if not isinstance(data, list):
+        abort(400)
+
+    if SUBMIT_SERVER_URL:
+        import urllib.request as urllib_req
+        import json as json_mod
+        payload = json_mod.dumps(data).encode("utf-8")
+        req = urllib_req.Request(
+            SUBMIT_SERVER_URL,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib_req.urlopen(req, timeout=10) as resp:
+            pass
+        return jsonify({"status": "forwarded", "count": len(data)})
+
+    return jsonify({"status": "ok", "count": len(data)})
 
 
 # 직접 실행 시 Flask 개발 서버 시작 (디버그 모드)
