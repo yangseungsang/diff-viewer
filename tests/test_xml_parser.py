@@ -111,3 +111,27 @@ def test_empty_diffitems_returns_empty(tmp_path):
     lines, meta_map = parse_xml_file(str(f))
     assert lines == []
     assert meta_map == {}
+
+
+from app import get_file_list
+
+def test_get_file_list_finds_xml(tmp_path):
+    # baseline 디렉토리 구조 생성
+    word_dir = tmp_path / "00.WordBase"
+    code_dir = tmp_path / "01.CodeBase"
+    word_dir.mkdir(); code_dir.mkdir()
+    (word_dir / "a.xml").write_text('<DiffPackage><PackageName>P</PackageName><DiffItems/></DiffPackage>', encoding="utf-8")
+    (code_dir / "a.xml").write_text('<DiffPackage><PackageName>P</PackageName><DiffItems/></DiffPackage>', encoding="utf-8")
+
+    import app as app_module
+    original_data_dir = app_module.DATA_DIR
+
+    baseline_name = tmp_path.name
+    parent = str(tmp_path.parent)
+    app_module.DATA_DIR = parent
+    try:
+        result = get_file_list(baseline_name)
+        filenames = [f['name'] for f in result['files']]
+        assert "a.xml" in filenames
+    finally:
+        app_module.DATA_DIR = original_data_dir

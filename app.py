@@ -130,9 +130,9 @@ def get_file_list(baseline):
     # 한쪽에만 있는 파일도 포함하기 위해 set 합집합(|=) 사용
     filenames = set()
     if word_dir:
-        filenames |= {f for f in os.listdir(word_dir) if f.endswith(".txt")}
+        filenames |= {f for f in os.listdir(word_dir) if f.endswith(".xml")}
     if code_dir:
-        filenames |= {f for f in os.listdir(code_dir) if f.endswith(".txt")}
+        filenames |= {f for f in os.listdir(code_dir) if f.endswith(".xml")}
 
     # 각 파일의 변경 여부를 확인하여 리스트 구성
     files = []
