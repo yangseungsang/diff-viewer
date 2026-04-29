@@ -933,7 +933,7 @@ def submit_edits(baseline, filename):
             headers={"Content-Type": "application/json"},
             method="POST",
         )
-        with urllib_req.urlopen(req, timeout=10) as resp:
+        with urllib_req.urlopen(req, timeout=10):
             pass
         return jsonify({"status": "forwarded", "count": len(data)})
 
