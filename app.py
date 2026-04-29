@@ -655,7 +655,7 @@ def read_file(path):
         return f.readlines()
 
 
-def make_row(rtype, lineno_a, lineno_b, text_a, text_b):
+def make_row(rtype, lineno_a, lineno_b, text_a, text_b, meta_b=None):
     """diff 테이블의 한 행(row) 데이터를 생성.
 
     행 유형에 따라 적절한 HTML을 생성:
@@ -671,15 +671,15 @@ def make_row(rtype, lineno_a, lineno_b, text_a, text_b):
         lineno_b (int|None): 수정본 줄 번호
         text_a (str|None): 원본 줄 텍스트
         text_b (str|None): 수정본 줄 텍스트
+        meta_b (dict|None): XML Item 메타데이터 (XML 파일의 replace/insert 행만 해당)
 
     Returns:
-        dict: {type, lineno_a, lineno_b, html_a, html_b}
+        dict: {type, lineno_a, lineno_b, html_a, html_b, meta_b}
     """
     if rtype == "equal":
         ha = esc(text_a)
         hb = esc(text_b)
     elif rtype == "replace":
-        # 단어 단위 diff로 세밀한 HTML 생성
         ha, hb = word_diff_html(text_a or "", text_b or "")
     elif rtype == "delete":
         ha = esc(text_a or "")
@@ -696,6 +696,7 @@ def make_row(rtype, lineno_a, lineno_b, text_a, text_b):
         "lineno_b": lineno_b,
         "html_a": ha,
         "html_b": hb,
+        "meta_b": meta_b,
     }
 
 
