@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import textwrap
 import pytest
-from app import parse_xml_file, get_file_list
+from app import parse_xml_file, get_file_list, build_diff
 
 XML_SAMPLE = textwrap.dedent("""\
     <?xml version="1.0" encoding="utf-8"?>
@@ -137,3 +137,63 @@ def test_get_file_list_finds_xml(tmp_path):
         assert "b.txt" not in filenames
     finally:
         app_module.DATA_DIR = original_data_dir
+
+
+WORD_XML = """<?xml version="1.0" encoding="utf-8"?>
+<DiffPackage>
+  <PackageName>Pkg</PackageName>
+  <DiffItems>
+    <DiffItem>
+      <SubTitle>S1</SubTitle>
+      <Items>
+        <Item><ID>a1</ID><Value>같은 내용</Value><LineNumber>1</LineNumber><EditType>None</EditType></Item>
+        <Item><ID>a2</ID><Value>원본 값</Value><LineNumber>2</LineNumber><EditType>None</EditType></Item>
+      </Items>
+    </DiffItem>
+  </DiffItems>
+</DiffPackage>"""
+
+CODE_XML = """<?xml version="1.0" encoding="utf-8"?>
+<DiffPackage>
+  <PackageName>Pkg</PackageName>
+  <DiffItems>
+    <DiffItem>
+      <SubTitle>S1</SubTitle>
+      <Items>
+        <Item><ID>a1</ID><Value>같은 내용</Value><LineNumber>1</LineNumber><EditType>None</EditType></Item>
+        <Item><ID>a2</ID><Value>수정된 값</Value><LineNumber>2</LineNumber><EditType>Modified</EditType></Item>
+      </Items>
+    </DiffItem>
+  </DiffItems>
+</DiffPackage>"""
+
+
+def test_build_diff_xml_replace_has_meta_b(tmp_path):
+    word_dir = tmp_path / "00.WordBase"
+    code_dir = tmp_path / "01.CodeBase"
+    word_dir.mkdir(); code_dir.mkdir()
+    (word_dir / "t.xml").write_text(WORD_XML, encoding="utf-8")
+    (code_dir / "t.xml").write_text(CODE_XML, encoding="utf-8")
+
+    rows, total, changed = build_diff(str(word_dir), str(code_dir), "t.xml")
+    replace_rows = [r for r in rows if r["type"] == "replace"]
+    assert len(replace_rows) > 0
+    for row in replace_rows:
+        assert row["meta_b"] is not None
+        assert "item_id" in row["meta_b"]
+        assert "sub_title" in row["meta_b"]
+        assert "package_name" in row["meta_b"]
+
+
+def test_build_diff_xml_equal_has_no_meta_b(tmp_path):
+    word_dir = tmp_path / "00.WordBase"
+    code_dir = tmp_path / "01.CodeBase"
+    word_dir.mkdir(); code_dir.mkdir()
+    (word_dir / "t.xml").write_text(WORD_XML, encoding="utf-8")
+    (code_dir / "t.xml").write_text(CODE_XML, encoding="utf-8")
+
+    rows, _, _ = build_diff(str(word_dir), str(code_dir), "t.xml")
+    equal_rows = [r for r in rows if r["type"] == "equal"]
+    assert len(equal_rows) > 0
+    for row in equal_rows:
+        assert row["meta_b"] is None

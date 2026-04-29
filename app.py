@@ -723,9 +723,15 @@ def build_diff(word_dir, code_dir, filename):
     path_a = os.path.join(word_dir, filename)
     path_b = os.path.join(code_dir, filename)
 
-    # [H1] Windows 줄바꿈(\r\n) 처리 — 통일된 비교를 위해 줄 끝 문자 제거
-    lines_a = [l.rstrip("\r\n") for l in read_file(path_a)]
-    lines_b = [l.rstrip("\r\n") for l in read_file(path_b)]
+    is_xml = filename.endswith(".xml")
+    if is_xml:
+        lines_a, _ = parse_xml_file(path_a)
+        lines_b, meta_map_b = parse_xml_file(path_b)
+    else:
+        # [H1] Windows 줄바꿈(\r\n) 처리 — 통일된 비교를 위해 줄 끝 문자 제거
+        lines_a = [l.rstrip("\r\n") for l in read_file(path_a)]
+        lines_b = [l.rstrip("\r\n") for l in read_file(path_b)]
+        meta_map_b = {}
 
     # [H2] 빈 파일 처리 — 양쪽 모두 비어있거나 한쪽만 빈 경우
     if not lines_a and not lines_b:
@@ -766,12 +772,19 @@ def build_diff(word_dir, code_dir, filename):
             # 변경된 줄 블록 — 유사도 기반 매칭으로 세밀하게 비교
             block_a = lines_a[i1:i2]
             block_b = lines_b[j1:j2]
-            matched = match_blocks(block_a, block_b)
+            if is_xml:
+                # XML 모드: 구조화된 항목은 위치 기준으로 강제 replace 매칭
+                matched = list(zip(["replace"] * max(len(block_a), len(block_b)),
+                                   block_a + [None] * (max(len(block_a), len(block_b)) - len(block_a)),
+                                   block_b + [None] * (max(len(block_a), len(block_b)) - len(block_b))))
+            else:
+                matched = match_blocks(block_a, block_b)
             for rtype, la, lb in matched:
                 # 해당 줄이 있을 때만 줄 번호 부여
                 lna = lineno_a if la is not None else None
                 lnb = lineno_b if lb is not None else None
-                rows.append(make_row(rtype, lna, lnb, la, lb))
+                meta = meta_map_b.get(lineno_b - 1) if (is_xml and lb is not None and rtype in ("replace", "insert")) else None
+                rows.append(make_row(rtype, lna, lnb, la, lb, meta_b=meta))
                 if la is not None: lineno_a += 1
                 if lb is not None: lineno_b += 1
 
@@ -784,7 +797,8 @@ def build_diff(word_dir, code_dir, filename):
         elif tag == "insert":
             # 추가된 줄 블록 — 수정본에만 존재하는 줄
             for lb in lines_b[j1:j2]:
-                rows.append(make_row("insert", None, lineno_b, None, lb))
+                meta = meta_map_b.get(lineno_b - 1) if is_xml else None
+                rows.append(make_row("insert", None, lineno_b, None, lb, meta_b=meta))
                 lineno_b += 1
 
     total   = len(rows)                                      # 전체 행 수
