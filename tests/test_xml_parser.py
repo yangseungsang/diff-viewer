@@ -175,7 +175,7 @@ def test_build_diff_xml_replace_has_meta_b(tmp_path):
     (word_dir / "t.xml").write_text(WORD_XML, encoding="utf-8")
     (code_dir / "t.xml").write_text(CODE_XML, encoding="utf-8")
 
-    rows, total, changed = build_diff(str(word_dir), str(code_dir), "t.xml")
+    rows, _, _ = build_diff(str(word_dir), str(code_dir), "t.xml")
     replace_rows = [r for r in rows if r["type"] == "replace"]
     assert len(replace_rows) > 0
     for row in replace_rows:
