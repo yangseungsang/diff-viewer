@@ -2,7 +2,8 @@
 import sys, os
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
-import textwrap, tempfile, pytest
+import textwrap
+import pytest
 from app import parse_xml_file
 
 XML_SAMPLE = textwrap.dedent("""\
@@ -92,10 +93,21 @@ def test_meta_map_second_diffitem(xml_file):
     meta = meta_map[idx]
     assert meta["item_id"] == "id_003"
     assert meta["sub_title"] == "섹션2"
+    assert meta["package_name"] == "MyPkg"
+    assert meta["value"] == "세 번째 값"
 
 
 def test_header_lines_not_in_meta_map(xml_file):
     lines, meta_map = parse_xml_file(xml_file)
     for idx, line in enumerate(lines):
-        if "MyPkg" in line or line.strip() == "":
+        if line.startswith("#########") or line.strip() == "":
             assert idx not in meta_map, f"헤더/빈 줄(인덱스 {idx})이 meta_map에 포함됨"
+
+
+def test_empty_diffitems_returns_empty(tmp_path):
+    empty_xml = '<?xml version="1.0" encoding="utf-8"?><DiffPackage><PackageName>P</PackageName><DiffItems/></DiffPackage>'
+    f = tmp_path / "empty.xml"
+    f.write_text(empty_xml, encoding="utf-8")
+    lines, meta_map = parse_xml_file(str(f))
+    assert lines == []
+    assert meta_map == {}

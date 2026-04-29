@@ -620,11 +620,16 @@ def parse_xml_file(path):
             line_number_text = item_el.findtext('LineNumber') or '0'
             edit_type = item_el.findtext('EditType') or 'None'
 
+            try:
+                line_number = int(line_number_text)
+            except ValueError:
+                line_number = 0
+
             idx = len(lines)
             meta_map[idx] = {
                 'item_id': item_id,
                 'value': value,
-                'line_number': int(line_number_text),
+                'line_number': line_number,
                 'edit_type': edit_type,
                 'sub_title': sub_title,
                 'package_name': package_name,
