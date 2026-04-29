@@ -16,6 +16,7 @@ import os      # 파일 시스템 경로 처리용
 import re      # 정규표현식 (토큰 분리, 공백 제거 등)
 import html    # HTML 이스케이프용
 import difflib # 텍스트 비교 및 유사도 계산 라이브러리
+import xml.etree.ElementTree as ET
 from flask import Flask, render_template, abort, redirect, url_for
 
 # Flask 애플리케이션 인스턴스 생성
@@ -590,6 +591,48 @@ def match_blocks(block_a, block_b):
 # ─────────────────────────────────────────
 # 파일 전체 diff: 두 파일을 비교하여 HTML 행 데이터 생성
 # ─────────────────────────────────────────
+
+def parse_xml_file(path):
+    """XML 파일을 파싱해 텍스트 라인 리스트와 Item 메타데이터 맵을 반환.
+
+    Returns:
+        tuple[list[str], dict[int, dict]]:
+            - lines: 기존 diff 엔진에 전달할 텍스트 라인 리스트
+              형식: ["######### {PackageName} ##########", "", "{Value}", ...]
+            - meta_map: {0-based 라인 인덱스: item 메타데이터 딕셔너리}
+              헤더/빈 줄은 meta_map에 포함되지 않음
+    """
+    tree = ET.parse(path)
+    root = tree.getroot()
+    package_name = root.findtext('PackageName') or ''
+
+    lines = []
+    meta_map = {}
+
+    for diff_item in root.findall('.//DiffItem'):
+        sub_title = diff_item.findtext('SubTitle') or ''
+        lines.append(f"######### {package_name} ##########")
+        lines.append("")
+
+        for item_el in diff_item.findall('Items/Item'):
+            item_id = item_el.findtext('ID') or ''
+            value = item_el.findtext('Value') or ''
+            line_number_text = item_el.findtext('LineNumber') or '0'
+            edit_type = item_el.findtext('EditType') or 'None'
+
+            idx = len(lines)
+            meta_map[idx] = {
+                'item_id': item_id,
+                'value': value,
+                'line_number': int(line_number_text),
+                'edit_type': edit_type,
+                'sub_title': sub_title,
+                'package_name': package_name,
+            }
+            lines.append(value)
+
+    return lines, meta_map
+
 
 def read_file(path):
     """파일을 UTF-8로 읽어 줄 리스트로 반환.
