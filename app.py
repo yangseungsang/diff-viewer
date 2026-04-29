@@ -16,7 +16,8 @@ import os      # 파일 시스템 경로 처리용
 import re      # 정규표현식 (토큰 분리, 공백 제거 등)
 import html    # HTML 이스케이프용
 import difflib # 텍스트 비교 및 유사도 계산 라이브러리
-from flask import Flask, render_template, abort, redirect, url_for
+import xml.etree.ElementTree as ET
+from flask import Flask, render_template, abort, redirect, url_for, request, jsonify
 
 # Flask 애플리케이션 인스턴스 생성
 app = Flask(__name__)
@@ -29,6 +30,9 @@ DATA_DIR = os.path.join(BASE_DIR, "data")
 # [H3] 두 줄이 같은 줄로 짝지어질 최소 유사도 임계값
 # 0.55로 설정 — 기존 0.3은 너무 낮아 무관한 줄끼리 잘못 매칭되는 문제가 있었음
 SIMILARITY_THRESHOLD = 0.55
+
+# 편집 결과를 전송할 외부 서버 URL (추후 설정)
+SUBMIT_SERVER_URL = ""
 
 
 # ─────────────────────────────────────────
@@ -129,9 +133,9 @@ def get_file_list(baseline):
     # 한쪽에만 있는 파일도 포함하기 위해 set 합집합(|=) 사용
     filenames = set()
     if word_dir:
-        filenames |= {f for f in os.listdir(word_dir) if f.endswith(".txt")}
+        filenames |= {f for f in os.listdir(word_dir) if f.endswith(".xml")}
     if code_dir:
-        filenames |= {f for f in os.listdir(code_dir) if f.endswith(".txt")}
+        filenames |= {f for f in os.listdir(code_dir) if f.endswith(".xml")}
 
     # 각 파일의 변경 여부를 확인하여 리스트 구성
     files = []
@@ -591,6 +595,53 @@ def match_blocks(block_a, block_b):
 # 파일 전체 diff: 두 파일을 비교하여 HTML 행 데이터 생성
 # ─────────────────────────────────────────
 
+def parse_xml_file(path):
+    """XML 파일을 파싱해 텍스트 라인 리스트와 Item 메타데이터 맵을 반환.
+
+    Returns:
+        tuple[list[str], dict[int, dict]]:
+            - lines: 기존 diff 엔진에 전달할 텍스트 라인 리스트
+              형식: ["######### {PackageName} ##########", "", "{Value}", ...]
+            - meta_map: {0-based 라인 인덱스: item 메타데이터 딕셔너리}
+              헤더/빈 줄은 meta_map에 포함되지 않음
+    """
+    tree = ET.parse(path)
+    root = tree.getroot()
+    package_name = root.findtext('PackageName') or ''
+
+    lines = []
+    meta_map = {}
+
+    for diff_item in root.findall('.//DiffItem'):
+        sub_title = diff_item.findtext('SubTitle') or ''
+        lines.append(f"######### {package_name} ##########")
+        lines.append("")
+
+        for item_el in diff_item.findall('Items/Item'):
+            item_id = item_el.findtext('ID') or ''
+            value = item_el.findtext('Value') or ''
+            line_number_text = item_el.findtext('LineNumber') or '0'
+            edit_type = item_el.findtext('EditType') or 'None'
+
+            try:
+                line_number = int(line_number_text)
+            except ValueError:
+                line_number = 0
+
+            idx = len(lines)
+            meta_map[idx] = {
+                'item_id': item_id,
+                'value': value,
+                'line_number': line_number,
+                'edit_type': edit_type,
+                'sub_title': sub_title,
+                'package_name': package_name,
+            }
+            lines.append(value)
+
+    return lines, meta_map
+
+
 def read_file(path):
     """파일을 UTF-8로 읽어 줄 리스트로 반환.
 
@@ -607,7 +658,7 @@ def read_file(path):
         return f.readlines()
 
 
-def make_row(rtype, lineno_a, lineno_b, text_a, text_b):
+def make_row(rtype, lineno_a, lineno_b, text_a, text_b, meta_b=None):
     """diff 테이블의 한 행(row) 데이터를 생성.
 
     행 유형에 따라 적절한 HTML을 생성:
@@ -623,15 +674,15 @@ def make_row(rtype, lineno_a, lineno_b, text_a, text_b):
         lineno_b (int|None): 수정본 줄 번호
         text_a (str|None): 원본 줄 텍스트
         text_b (str|None): 수정본 줄 텍스트
+        meta_b (dict|None): XML Item 메타데이터 (XML 파일의 replace/insert 행만 해당)
 
     Returns:
-        dict: {type, lineno_a, lineno_b, html_a, html_b}
+        dict: {type, lineno_a, lineno_b, html_a, html_b, meta_b}
     """
     if rtype == "equal":
         ha = esc(text_a)
         hb = esc(text_b)
     elif rtype == "replace":
-        # 단어 단위 diff로 세밀한 HTML 생성
         ha, hb = word_diff_html(text_a or "", text_b or "")
     elif rtype == "delete":
         ha = esc(text_a or "")
@@ -648,6 +699,7 @@ def make_row(rtype, lineno_a, lineno_b, text_a, text_b):
         "lineno_b": lineno_b,
         "html_a": ha,
         "html_b": hb,
+        "meta_b": meta_b,
     }
 
 
@@ -674,9 +726,15 @@ def build_diff(word_dir, code_dir, filename):
     path_a = os.path.join(word_dir, filename)
     path_b = os.path.join(code_dir, filename)
 
-    # [H1] Windows 줄바꿈(\r\n) 처리 — 통일된 비교를 위해 줄 끝 문자 제거
-    lines_a = [l.rstrip("\r\n") for l in read_file(path_a)]
-    lines_b = [l.rstrip("\r\n") for l in read_file(path_b)]
+    is_xml = filename.endswith(".xml")
+    if is_xml:
+        lines_a, _ = parse_xml_file(path_a)
+        lines_b, meta_map_b = parse_xml_file(path_b)
+    else:
+        # [H1] Windows 줄바꿈(\r\n) 처리 — 통일된 비교를 위해 줄 끝 문자 제거
+        lines_a = [l.rstrip("\r\n") for l in read_file(path_a)]
+        lines_b = [l.rstrip("\r\n") for l in read_file(path_b)]
+        meta_map_b = {}
 
     # [H2] 빈 파일 처리 — 양쪽 모두 비어있거나 한쪽만 빈 경우
     if not lines_a and not lines_b:
@@ -717,12 +775,19 @@ def build_diff(word_dir, code_dir, filename):
             # 변경된 줄 블록 — 유사도 기반 매칭으로 세밀하게 비교
             block_a = lines_a[i1:i2]
             block_b = lines_b[j1:j2]
-            matched = match_blocks(block_a, block_b)
+            if is_xml:
+                # XML 모드: 구조화된 항목은 위치 기준으로 강제 replace 매칭
+                matched = list(zip(["replace"] * max(len(block_a), len(block_b)),
+                                   block_a + [None] * (max(len(block_a), len(block_b)) - len(block_a)),
+                                   block_b + [None] * (max(len(block_a), len(block_b)) - len(block_b))))
+            else:
+                matched = match_blocks(block_a, block_b)
             for rtype, la, lb in matched:
                 # 해당 줄이 있을 때만 줄 번호 부여
                 lna = lineno_a if la is not None else None
                 lnb = lineno_b if lb is not None else None
-                rows.append(make_row(rtype, lna, lnb, la, lb))
+                meta = meta_map_b.get(lineno_b - 1) if (is_xml and lb is not None and rtype in ("replace", "insert")) else None
+                rows.append(make_row(rtype, lna, lnb, la, lb, meta_b=meta))
                 if la is not None: lineno_a += 1
                 if lb is not None: lineno_b += 1
 
@@ -735,7 +800,8 @@ def build_diff(word_dir, code_dir, filename):
         elif tag == "insert":
             # 추가된 줄 블록 — 수정본에만 존재하는 줄
             for lb in lines_b[j1:j2]:
-                rows.append(make_row("insert", None, lineno_b, None, lb))
+                meta = meta_map_b.get(lineno_b - 1) if is_xml else None
+                rows.append(make_row("insert", None, lineno_b, None, lb, meta_b=meta))
                 lineno_b += 1
 
     total   = len(rows)                                      # 전체 행 수
@@ -791,10 +857,10 @@ def diff_view(baseline, filename):
 
     Args:
         baseline (str): URL에서 전달된 베이스라인 폴더명
-        filename (str): 비교할 파일명 (.txt만 허용)
+        filename (str): 비교할 파일명 (.xml만 허용)
     """
-    # .txt 확장자가 아닌 파일은 400 Bad Request
-    if not filename.endswith(".txt"):
+    # .xml 확장자가 아닌 파일은 400 Bad Request
+    if not filename.endswith(".xml"):
         abort(400)
 
     baselines = get_baselines()
@@ -816,6 +882,7 @@ def diff_view(baseline, filename):
     # 파일 목록 및 diff 데이터 생성
     files = get_file_list(baseline)
     rows, total, changed = build_diff(word_dir, code_dir, filename)
+    has_editable = any(r.get("meta_b") for r in rows)
     # 디렉토리 이름만 추출 (헤더 표시용)
     word_dir_name = os.path.basename(word_dir)
     code_dir_name = os.path.basename(code_dir)
@@ -831,7 +898,46 @@ def diff_view(baseline, filename):
         total=total,                   # 전체 행 수
         changed=changed,               # 변경된 행 수
         files=files,                   # 사이드바용 파일 목록
+        has_editable=has_editable,
     )
+
+
+@app.route("/<baseline>/diff/<filename>/submit", methods=["POST"])
+def submit_edits(baseline, filename):
+    """편집/스킵 처리된 diff 라인 데이터를 외부 서버로 전송.
+
+    Request body (JSON):
+        [{"package_name": str, "sub_title": str,
+          "item": {"id": str, "value": str, "line_number": int, "edit_type": str},
+          "user_action": "edited"|"skipped"}, ...]
+
+    Returns:
+        JSON: {"status": "ok", "count": int}
+    """
+    if baseline not in get_baselines():
+        abort(404)
+    if not filename.endswith(".xml"):
+        abort(400)
+
+    data = request.get_json()
+    if not isinstance(data, list):
+        abort(400)
+
+    if SUBMIT_SERVER_URL:
+        import urllib.request as urllib_req
+        import json as json_mod
+        payload = json_mod.dumps(data).encode("utf-8")
+        req = urllib_req.Request(
+            SUBMIT_SERVER_URL,
+            data=payload,
+            headers={"Content-Type": "application/json"},
+            method="POST",
+        )
+        with urllib_req.urlopen(req, timeout=10):
+            pass
+        return jsonify({"status": "forwarded", "count": len(data)})
+
+    return jsonify({"status": "ok", "count": len(data)})
 
 
 # 직접 실행 시 Flask 개발 서버 시작 (디버그 모드)

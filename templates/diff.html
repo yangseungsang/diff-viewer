@@ -25,6 +25,10 @@
       {% if changed == 0 %}<span class="badge badge-same">변경 없음</span>{% else %}<span class="badge badge-changed">{{ changed }}줄 변경</span>{% endif %}
       <!-- 변경 위치 이동 버튼: 변경된 줄이 있을 때만 표시 -->
       {% if changed > 0 %}
+      {% if has_editable %}
+      <span class="edit-progress" id="edit-progress">0 / {{ changed }} 처리됨</span>
+      <button class="send-btn" id="send-btn" disabled>서버로 전송</button>
+      {% endif %}
       <!-- 이전 변경으로 이동 (Shift+F7 단축키) -->
       <button class="nav-change-btn" id="btn-prev-change" title="이전 변경 (Shift+F7)">&#9650;</button>
       <!-- 현재 위치 / 전체 변경 수 표시 -->
@@ -79,7 +83,7 @@
         <!-- 수정본 줄 번호 (gutter) -->
         <td class="gutter gutter-b">{% if row.lineno_b is not none %}{{ row.lineno_b }}{% endif %}</td>
         <!-- 수정본 코드: 추가/변경 시 '+' 기호 표시 + 단어 단위 diff HTML -->
-        <td class="code code-b"><span class="line-mark {% if row.type == "insert" or row.type == "replace" %}line-mark-add{% endif %}">{% if row.type == "insert" or row.type == "replace" %}+{% endif %}</span><span class="line-text">{{ row.html_b|safe }}</span></td>
+        <td class="code code-b"><span class="line-mark {% if row.type == "insert" or row.type == "replace" %}line-mark-add{% endif %}">{% if row.type == "insert" or row.type == "replace" %}+{% endif %}</span><span class="line-text" id="line-text-{{ loop.index }}">{{ row.html_b|safe }}</span>{% if row.meta_b %}<span class="edit-actions"><button class="edit-action-btn edit-btn" data-row="{{ loop.index }}" data-meta="{{ row.meta_b | tojson | forceescape }}" data-original="{{ row.meta_b.value | e }}">수정</button><button class="edit-action-btn skip-btn" data-row="{{ loop.index }}" data-meta="{{ row.meta_b | tojson | forceescape }}">스킵</button></span><span class="edit-status-badge" id="badge-{{ loop.index }}" style="display:none"></span>{% endif %}</td>
       </tr>
       {% endif %}
       {% endfor %}
@@ -171,6 +175,98 @@
       });
     }
   }
+}());
+
+/* ── Edit/Skip 상태 관리 ── */
+(function() {
+  var editState = {};
+  var editBtns = document.querySelectorAll('.edit-btn');
+  var skipBtns = document.querySelectorAll('.skip-btn');
+  var totalEditable = editBtns.length;
+  var progressEl = document.getElementById('edit-progress');
+  var sendBtn = document.getElementById('send-btn');
+
+  function updateProgress() {
+    var done = Object.keys(editState).length;
+    if (progressEl) progressEl.textContent = done + ' / ' + totalEditable + ' 처리됨';
+    if (sendBtn) sendBtn.disabled = (done < totalEditable);
+  }
+
+  function setRowState(rowIdx, action, value, meta) {
+    var tr = document.querySelector('[data-row="' + rowIdx + '"]');
+    if (tr) tr = tr.closest('tr');
+    var badge = document.getElementById('badge-' + rowIdx);
+    var lineText = document.getElementById('line-text-' + rowIdx);
+
+    if (tr) tr.classList.remove('row-edited', 'row-skipped');
+    if (badge) { badge.style.display = 'none'; badge.textContent = ''; }
+
+    if (action === null) {
+      delete editState[rowIdx];
+    } else {
+      editState[rowIdx] = { action: action, value: value, meta: meta };
+      if (tr) tr.classList.add(action === 'edited' ? 'row-edited' : 'row-skipped');
+      if (badge) {
+        badge.textContent = action === 'edited' ? '✓ 수정됨' : '⊘ 스킵됨';
+        badge.className = 'edit-status-badge badge-' + (action === 'edited' ? 'edited' : 'skipped');
+        badge.style.display = 'inline';
+      }
+      if (action === 'edited' && lineText) lineText.textContent = value;
+    }
+    updateProgress();
+  }
+
+  editBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var rowIdx = this.getAttribute('data-row');
+      var meta = JSON.parse(this.getAttribute('data-meta'));
+      var original = this.getAttribute('data-original');
+      if (editState[rowIdx] && editState[rowIdx].action === 'edited') {
+        setRowState(rowIdx, null, null, null);
+        return;
+      }
+      var newVal = prompt('값을 수정하세요:', original);
+      if (newVal === null) return;
+      setRowState(rowIdx, 'edited', newVal, meta);
+    });
+  });
+
+  skipBtns.forEach(function(btn) {
+    btn.addEventListener('click', function() {
+      var rowIdx = this.getAttribute('data-row');
+      var meta = JSON.parse(this.getAttribute('data-meta'));
+      var lineText = document.getElementById('line-text-' + rowIdx);
+      var original = lineText ? lineText.textContent : '';
+      if (editState[rowIdx] && editState[rowIdx].action === 'skipped') {
+        setRowState(rowIdx, null, null, null);
+        return;
+      }
+      setRowState(rowIdx, 'skipped', original, meta);
+    });
+  });
+
+  if (sendBtn) {
+    sendBtn.addEventListener('click', function() {
+      var payload = Object.values(editState).map(function(s) {
+        return {
+          package_name: s.meta.package_name,
+          sub_title: s.meta.sub_title,
+          item: { id: s.meta.item_id, value: s.value, line_number: s.meta.line_number, edit_type: s.meta.edit_type },
+          user_action: s.action
+        };
+      });
+      fetch(window.location.pathname + '/submit', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(function(r) { return r.json(); })
+      .then(function(data) { alert('전송 완료: ' + data.count + '건'); })
+      .catch(function(err) { alert('전송 실패: ' + err.message); });
+    });
+  }
+
+  updateProgress();
 }());
 </script>
 {% endblock %}

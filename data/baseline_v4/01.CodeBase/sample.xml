@@ -1,0 +1,40 @@
+<?xml version="1.0" encoding="utf-8"?>
+<DiffPackage>
+  <PackageName>TestPackage</PackageName>
+  <DiffItems>
+    <DiffItem>
+      <SubTitle>섹션A</SubTitle>
+      <Items>
+        <Item>
+          <ID>item_001</ID>
+          <Value>안녕하세요 월드</Value>
+          <LineNumber>1</LineNumber>
+          <EditType>Modified</EditType>
+        </Item>
+        <Item>
+          <ID>item_002</ID>
+          <Value>동일한 라인입니다</Value>
+          <LineNumber>2</LineNumber>
+          <EditType>None</EditType>
+        </Item>
+      </Items>
+    </DiffItem>
+    <DiffItem>
+      <SubTitle>섹션B</SubTitle>
+      <Items>
+        <Item>
+          <ID>item_003</ID>
+          <Value>변경된 내용 XYZ</Value>
+          <LineNumber>3</LineNumber>
+          <EditType>Modified</EditType>
+        </Item>
+        <Item>
+          <ID>item_004</ID>
+          <Value>또 다른 동일 라인</Value>
+          <LineNumber>4</LineNumber>
+          <EditType>None</EditType>
+        </Item>
+      </Items>
+    </DiffItem>
+  </DiffItems>
+</DiffPackage>

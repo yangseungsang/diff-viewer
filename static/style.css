@@ -747,3 +747,64 @@ span.wd-ws-add {
   .diff-col-header { grid-template-columns: 40px 1fr 40px 1fr; }  /* 거터 너비 축소 */
   .gutter { width: 40px; min-width: 40px; max-width: 40px; }
 }
+
+/* ── Edit/Skip 기능 스타일 ── */
+
+.edit-actions {
+  display: inline-flex;
+  gap: 4px;
+  margin-left: 8px;
+  vertical-align: middle;
+}
+
+.edit-action-btn {
+  font-size: 11px;
+  padding: 1px 7px;
+  border-radius: 3px;
+  border: 1px solid currentColor;
+  cursor: pointer;
+  background: transparent;
+  line-height: 1.4;
+}
+
+.edit-btn { color: #2563eb; border-color: #93c5fd; }
+.edit-btn:hover { background: #eff6ff; }
+
+.skip-btn { color: #6b7280; border-color: #d1d5db; }
+.skip-btn:hover { background: #f9fafb; }
+
+tr.row-edited td { background: #f0fdf4 !important; }
+tr.row-edited td.code-b { outline: 2px solid #22c55e; outline-offset: -2px; }
+
+tr.row-skipped td { background: #f9fafb !important; opacity: 0.7; }
+tr.row-skipped td.code-b { outline: 2px solid #9ca3af; outline-offset: -2px; }
+
+.edit-status-badge {
+  font-size: 11px;
+  font-weight: 600;
+  margin-left: 6px;
+  padding: 1px 5px;
+  border-radius: 3px;
+  vertical-align: middle;
+}
+.badge-edited  { color: #15803d; background: #dcfce7; }
+.badge-skipped { color: #6b7280; background: #f3f4f6; }
+
+.edit-progress {
+  font-size: 12px;
+  color: #6b7280;
+  margin-right: 6px;
+}
+
+.send-btn {
+  font-size: 12px;
+  padding: 3px 12px;
+  border-radius: 4px;
+  border: 1px solid #2563eb;
+  background: #2563eb;
+  color: #fff;
+  cursor: pointer;
+  font-weight: 600;
+}
+.send-btn:disabled { background: #9ca3af; border-color: #9ca3af; cursor: not-allowed; }
+.send-btn:not(:disabled):hover { background: #1d4ed8; }
