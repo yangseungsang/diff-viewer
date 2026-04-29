@@ -4,7 +4,7 @@ sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..'))
 
 import textwrap
 import pytest
-from app import parse_xml_file
+from app import parse_xml_file, get_file_list
 
 XML_SAMPLE = textwrap.dedent("""\
     <?xml version="1.0" encoding="utf-8"?>
@@ -113,8 +113,6 @@ def test_empty_diffitems_returns_empty(tmp_path):
     assert meta_map == {}
 
 
-from app import get_file_list
-
 def test_get_file_list_finds_xml(tmp_path):
     # baseline 디렉토리 구조 생성
     word_dir = tmp_path / "00.WordBase"
@@ -122,6 +120,9 @@ def test_get_file_list_finds_xml(tmp_path):
     word_dir.mkdir(); code_dir.mkdir()
     (word_dir / "a.xml").write_text('<DiffPackage><PackageName>P</PackageName><DiffItems/></DiffPackage>', encoding="utf-8")
     (code_dir / "a.xml").write_text('<DiffPackage><PackageName>P</PackageName><DiffItems/></DiffPackage>', encoding="utf-8")
+    # .txt 파일도 생성 — 필터되어야 함
+    (word_dir / "b.txt").write_text("should be ignored", encoding="utf-8")
+    (code_dir / "b.txt").write_text("should be ignored", encoding="utf-8")
 
     import app as app_module
     original_data_dir = app_module.DATA_DIR
@@ -133,5 +134,6 @@ def test_get_file_list_finds_xml(tmp_path):
         result = get_file_list(baseline_name)
         filenames = [f['name'] for f in result['files']]
         assert "a.xml" in filenames
+        assert "b.txt" not in filenames
     finally:
         app_module.DATA_DIR = original_data_dir
