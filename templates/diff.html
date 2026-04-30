@@ -98,6 +98,27 @@
 
 </div>
 
+<!-- ===== 수정 모달 ===== -->
+<div id="edit-modal" class="edit-modal-overlay" style="display:none">
+  <div class="edit-modal-box">
+    <div class="edit-modal-header">값 수정</div>
+    <div class="edit-modal-body">
+      <div class="edit-modal-row">
+        <label class="edit-modal-label">원본</label>
+        <div class="edit-modal-original" id="modal-original"></div>
+      </div>
+      <div class="edit-modal-row">
+        <label class="edit-modal-label">수정 내용</label>
+        <textarea class="edit-modal-textarea" id="modal-input" rows="3"></textarea>
+      </div>
+    </div>
+    <div class="edit-modal-footer">
+      <button class="edit-modal-btn edit-modal-cancel" id="modal-cancel">취소</button>
+      <button class="edit-modal-btn edit-modal-confirm" id="modal-confirm">확인</button>
+    </div>
+  </div>
+</div>
+
 <script>
 /* ── [M4] 변경 네비게이션 + 미니맵 ──
    변경된 줄 간 이동 기능과 전체 파일 대비 변경 위치를 시각적으로 표시하는 미니맵 */
@@ -216,18 +237,57 @@
     updateProgress();
   }
 
+  var modalOverlay = document.getElementById('edit-modal');
+  var modalOriginal = document.getElementById('modal-original');
+  var modalInput = document.getElementById('modal-input');
+  var modalConfirm = document.getElementById('modal-confirm');
+  var modalCancel = document.getElementById('modal-cancel');
+  var pendingEdit = null;
+
+  function openModal(rowIdx, meta, originalText, currentText) {
+    pendingEdit = { rowIdx: rowIdx, meta: meta };
+    modalOriginal.textContent = originalText;
+    modalInput.value = currentText;
+    modalOverlay.style.display = 'flex';
+    modalInput.focus();
+    modalInput.select();
+  }
+
+  function closeModal() {
+    modalOverlay.style.display = 'none';
+    pendingEdit = null;
+  }
+
+  modalConfirm.addEventListener('click', function() {
+    if (!pendingEdit) return;
+    var val = modalInput.value;
+    setRowState(pendingEdit.rowIdx, 'edited', val, pendingEdit.meta);
+    closeModal();
+  });
+
+  modalCancel.addEventListener('click', closeModal);
+
+  modalOverlay.addEventListener('click', function(e) {
+    if (e.target === modalOverlay) closeModal();
+  });
+
+  document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && modalOverlay.style.display !== 'none') closeModal();
+    if (e.key === 'Enter' && e.ctrlKey && modalOverlay.style.display !== 'none') modalConfirm.click();
+  });
+
   editBtns.forEach(function(btn) {
     btn.addEventListener('click', function() {
       var rowIdx = this.getAttribute('data-row');
       var meta = JSON.parse(this.getAttribute('data-meta'));
-      var original = this.getAttribute('data-original');
+      var originalText = this.getAttribute('data-original');
       if (editState[rowIdx] && editState[rowIdx].action === 'edited') {
         setRowState(rowIdx, null, null, null);
         return;
       }
-      var newVal = prompt('값을 수정하세요:', original);
-      if (newVal === null) return;
-      setRowState(rowIdx, 'edited', newVal, meta);
+      var lineText = document.getElementById('line-text-' + rowIdx);
+      var currentText = (editState[rowIdx] && editState[rowIdx].value) || (lineText ? lineText.textContent : originalText);
+      openModal(rowIdx, meta, originalText, currentText);
     });
   });
 
